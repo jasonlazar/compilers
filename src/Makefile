@@ -1,16 +1,20 @@
 CXXFLAGS=-g -Wall
 CXX=c++
 
-.PHONY: clean distclean
+.PHONY: default clean distclean
 
-minibasic: lexer.o
-	$(CXX) $(CXXFLAGS) -o $@ $^ -lfl
+default: tony
 
 lexer.cpp: lexer.l
 	flex -s -o $@ $<
+
+lexer.o: lexer.cpp lexer.hpp
+
+tony: lexer.o
+	$(CXX) $(CXXFLAGS) -o $@ $^ -lfl
 
 clean:
 	$(RM) lexer.cpp *.o *~
 
 distclean: clean
-	$(RM) minibasic$(EXE)
+	$(RM) tony$(EXE)
