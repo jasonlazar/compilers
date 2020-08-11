@@ -2,6 +2,11 @@
 %x COMMENT
 
 %{
+#include <string>
+#include <iostream>
+
+#include "lexer.hpp"
+
 enum tokens {
 	T_eof = 0,
 	T_and = 1001,
@@ -128,9 +133,8 @@ W	[ \r\n\t]
 <COMMENT>"*"	{ /* nothing */ }
 <COMMENT>[^*]	{ /* nothing */ }
 
-.       { fprintf(stderr, "Illegal character with code %d\n", yytext[0]);
-          exit(1);
-        }
+.       { yyerror(std::string("Illegal token ").append(yytext)); }
+
 %%
 
 int main () {
@@ -139,4 +143,9 @@ int main () {
     token = yylex();
     printf("token=%d, lexeme=\"%s\"\n", token, yytext);
   } while (token != T_eof);
+}
+
+void yyerror(std::string msg){
+	std::cerr << msg << "\n";
+	exit(1);
 }
