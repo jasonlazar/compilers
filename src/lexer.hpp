@@ -3,6 +3,8 @@
 #include <string>
 
 int yylex();
-void yyerror(std::string msg);
+void yyerror(char const *msg);
+
+extern int linecount;
 
 #endif

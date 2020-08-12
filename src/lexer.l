@@ -2,73 +2,18 @@
 %x COMMENT
 
 %{
-#include <string>
-#include <iostream>
+#include <cstring>
 
 #include "lexer.hpp"
+#include "parser.hpp"
 
-enum tokens {
-	T_eof = 0,
-	T_and = 1001,
-	T_bool,
-	T_char,
-	T_decl,
-	T_def,
-	T_else,
-	T_elsif,
-	T_end,
-	T_exit,
-	T_false,
-	T_for,
-	T_head,
-	T_if,
-	T_int,
-	T_list,
-	T_mod,
-	T_new,
-	T_nil,
-	T_isnil,
-	T_not,
-	T_or,
-	T_ref,
-	T_return,
-	T_skip,
-	T_tail,
-	T_true,
-	T_id,
-	T_num,
-	T_constchar,
-	T_string
-};
-
-enum operators {
-	T_add = 1031,
-	T_sub,
-	T_mul,
-	T_div,
-	T_cons,
-	T_eq,
-	T_neq,
-	T_less,
-	T_greater,
-	T_leq,
-	T_geq,
-	T_lpar,
-	T_rpar,
-	T_lbr,
-	T_rbr,
-	T_comma,
-	T_sem,
-	T_col,
-	T_assign
-};
 %}
 
 L	[A-Za-z]
 D	[0-9]
 Hex	({D}|[A-Fa-f])
 Esc	\\([tnr0\'\"\\]|x{Hex}{Hex})
-W	[ \r\n\t]
+W	[ \r\t]
 
 %%
 
@@ -125,27 +70,24 @@ W	[ \r\n\t]
 \'({Esc}|[^\'\"\\])\'	{ return T_constchar; }
 \"({Esc}|[^\'\"\r\n\\])*\"	{ return T_string; }
 
+\n		{ linecount++; }
 {W}+	{ /* nothing */ }
-%.*\n	{ /* nothing */ }
+%.*\n	{ linecount++; }
 
 "<*"			{ BEGIN(COMMENT); }
 <COMMENT>"*>"	{ BEGIN(INITIAL); }
 <COMMENT>"*"	{ /* nothing */ }
-<COMMENT>[^*]	{ /* nothing */ }
+<COMMENT>\n		{ linecount++; }
+<COMMENT>[^*\n]	{ /* nothing */ }
 
-.       { yyerror(std::string("Illegal token ").append(yytext)); }
+.       { char str[30];
+		  strcpy(str, "Illegal token ");
+		  yyerror(strcat(str, yytext));
+		}
 
 %%
 
-int main () {
-  int token;
-  do {
-    token = yylex();
-    printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-  } while (token != T_eof);
-}
-
-void yyerror(std::string msg){
-	std::cerr << msg << "\n";
+void yyerror(char const *msg){
+	fprintf(stderr, "error in line %d: %s\n", linecount, msg);
 	exit(1);
 }
