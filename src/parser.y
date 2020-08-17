@@ -80,7 +80,7 @@ func_def:
 
 def_list:
 	/* nothing*/
-|	def def_list
+|	def_list def 
 ;
 
 stmt_list:
