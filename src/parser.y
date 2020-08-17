@@ -102,8 +102,8 @@ header:
 ;
 
 formal:
-	"ref" var_def
-|	var_def
+	"ref" type T_id id_list
+|	type T_id id_list
 ;
 
 formal_list:
