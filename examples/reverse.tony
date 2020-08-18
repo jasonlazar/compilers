@@ -11,5 +11,5 @@ def main ():
     return t
   end
 
-    puts(reverse("\n!dlrow olleH"))
+  puts(reverse("\n!dlrow olleH"))
 end
