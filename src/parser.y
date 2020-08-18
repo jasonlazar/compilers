@@ -81,7 +81,11 @@ int linecount=1;
 	Decl_List* decl_list;
 	Stmt_List* stmt_list;
 	Formal_List* formal_list;
+	Elsif_List* elsif_list;
+	Simple_List* simple_list;
 	Decl* decl;
+	Simple* simple;
+	Elsif* elsif;
 
 	Type type;
 	char* id;
@@ -98,6 +102,10 @@ int linecount=1;
 %type<funcdecl> func_decl
 %type<vardef> var_def
 %type<stmt> stmt
+%type<simple> simple
+%type<elsif_list> elsif_list
+%type<elsif> elsif_stmt
+%type<simple_list> simple_list
 
 %%
 
@@ -166,32 +174,32 @@ var_def:
 ;
 
 stmt:
-	simple															{ $$ = new Stmt(); }
-|	"exit"															{ $$ = new Stmt(); }
-|	"return" expr													{ $$ = new Stmt(); }
-|	"if" expr ":" stmt_list elsif_list "end"						{ $$ = new Stmt(); }
-|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"	{ $$ = new Stmt(); }
-|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"	{ $$ = new Stmt(); }
+	simple															{ $$ = $1; }
+|	"exit"															{ $$ = new Exit(); }
+|	"return" expr													{ $$ = new Return(new Expr); }
+|	"if" expr ":" stmt_list elsif_list "end"						{ $$ = new If(new Expr, *$4, *$5); }
+|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"	{ $$ = new If(new Expr, *$4, *$5, *$8); }
+|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"	{ $$ = new For(*$2, new Expr, *$6, *$8); }
 ;
 
 elsif_list:
-	/* nothing */
-|	elsif_list elsif_stmt
+	/* nothing */			{ $$ = new Elsif_List(); }
+|	elsif_list elsif_stmt	{ $1->push_back($2); $$ = $1; }
 ;
 
 elsif_stmt:
-	"elsif" expr ":" stmt_list
+	"elsif" expr ":" stmt_list	{ $$ = new Elsif(new Expr, *$4); }
 ;
 
 simple:
-	"skip"
-|	atom ":=" expr
-|	call
+	"skip"			{ $$ = new Skip(); }
+|	atom ":=" expr	{ $$ = new Simple(); }
+|	call			{ $$ = new Simple(); }
 ;
 
 simple_list:
-	simple
-|	simple_list "," simple
+	simple					{ $$ = new Simple_List(1, $1); }
+|	simple_list "," simple	{ $1->push_back($3); $$ = $1; }
 ;
 
 call:
