@@ -4,6 +4,7 @@
 %{
 #include <cstring>
 
+#include "ast.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 
@@ -65,7 +66,7 @@ W	[ \r\t]
 ":"		{ return T_col; }
 ":="	{ return T_assign; }
 
-{L}({L}|{D}|[_?])*	{ return T_id; }
+{L}({L}|{D}|[_?])*	{ yylval.id = strdup(yytext); return T_id; }
 {D}+		{ return T_num; }
 \'({Esc}|[^\'\"\\])\'	{ return T_constchar; }
 \"({Esc}|[^\'\"\r\n\\])*\"	{ return T_string; }

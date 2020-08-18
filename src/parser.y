@@ -1,6 +1,8 @@
 %{
 #include <iostream>
+
 #include "lexer.hpp"
+#include "ast.hpp"
 
 int linecount=1;
 %}
@@ -34,11 +36,6 @@ int linecount=1;
 %token T_tail	"tail"
 %token T_true	"true"
 
-%token T_id
-%token T_num
-%token T_constchar
-%token T_string
-
 %token T_add		"+"
 %token T_sub		"-"
 %token T_mul		"*"
@@ -60,6 +57,11 @@ int linecount=1;
 %token T_col	":"
 %token T_assign	":="
 
+%token<id> T_id
+%token T_num
+%token T_constchar
+%token T_string
+
 %left "or"
 %left "and"
 %nonassoc "not"
@@ -68,52 +70,83 @@ int linecount=1;
 %left "+" "-"
 %left "*" "/" "mod"
 
+%union {
+	FunctionDef* func;
+	FunctionDecl* funcdecl;
+	Stmt* stmt;
+	Formal* formal;
+	Header* header;
+	VarDef* vardef;
+	Id_List* id_list;
+	Decl_List* decl_list;
+	Stmt_List* stmt_list;
+	Formal_List* formal_list;
+	Decl* decl;
+
+	Type type;
+	char* id;
+}
+
+%type<func> func_def
+%type<decl_list> def_list
+%type<stmt_list> stmt_list
+%type<decl> def
+%type<header> header
+%type<formal> formal
+%type<formal_list> formal_list
+%type<id_list> id_list
+%type<funcdecl> func_decl
+%type<vardef> var_def
+%type<stmt> stmt
+
 %%
 
 program:
-	func_def
+	func_def {
+		std::cout << "AST: " << *$1 << std::endl;
+	}
 ;
 
 func_def:
-	"def" header ":" def_list stmt_list "end"
+	"def" header ":" def_list stmt_list "end" { $$ = new FunctionDef($2, *$4, *$5); }
 ;
 
 def_list:
-	/* nothing*/
-|	def_list def 
+	/* nothing*/	{ $$ = new Decl_List(); }
+|	def_list def	{ $1->push_back($2); $$ = $1; } 
 ;
 
 stmt_list:
-	stmt
-|	stmt_list stmt
+	stmt			{ $$ = new Stmt_List(1, $1); }
+|	stmt_list stmt	{ $1->push_back($2); $$ = $1; }
 ;
 
 def:
-	func_def
-|	func_decl
-|	var_def
+	func_def	{ $$ = $1; }
+|	func_decl	{ $$ = $1; }
+|	var_def		{ $$ = $1; }
 ;
 
 header:
-	type T_id "(" formal formal_list ")"
-|	type T_id "(" ")"
-|	T_id "(" formal formal_list ")"
-|	T_id "(" ")"
+	type T_id "(" formal formal_list ")"	{ $5->insert($5->begin(), $4); $$ = new Header(TYPE, $2, *$5); }
+|	type T_id "(" ")"						{ $$ = new Header(TYPE, $2); }
+|	T_id "(" formal formal_list ")"			{ $4->insert($4->begin(), $3); $$ = new Header(TYPE_VOID, $1, *$4); }
+|	T_id "(" ")"							{ $$ = new Header(TYPE_VOID, $1); }
 ;
 
 formal:
-	"ref" type T_id id_list
-|	type T_id id_list
+	"ref" type T_id id_list	{ $4->insert($4->begin(), $3); $$ = new Formal(TYPE, *$4); }
+|	type T_id id_list { $3->insert($3->begin(), $2); $$ = new Formal(TYPE, *$3); }
 ;
 
 formal_list:
-	/* nothing */
-|	formal_list ";" formal
+	/* nothing */			{ $$ = new Formal_List(); }
+|	formal_list ";" formal	{ $1->push_back($3); $$ = $1; }
 ;
 
 id_list:
-	/* nothing */
-|	id_list "," T_id
+	/* nothing */		{ $$ = new Id_List(); }
+|	id_list "," T_id	{ $1->push_back($3); $$ =$1; }
 ;
 
 type:
@@ -125,20 +158,20 @@ type:
 ;
 
 func_decl:
-	"decl" header
+	"decl" header	{ $$ = new FunctionDecl($2); }
 ;
 
 var_def:
-	type T_id id_list
+	type T_id id_list { $3->insert($3->begin(), $2); $$ = new VarDef(TYPE, *$3); }
 ;
 
 stmt:
-	simple
-|	"exit"
-|	"return" expr
-|	"if" expr ":" stmt_list elsif_list "end"
-|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"
-|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"
+	simple															{ $$ = new Stmt(); }
+|	"exit"															{ $$ = new Stmt(); }
+|	"return" expr													{ $$ = new Stmt(); }
+|	"if" expr ":" stmt_list elsif_list "end"						{ $$ = new Stmt(); }
+|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"	{ $$ = new Stmt(); }
+|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"	{ $$ = new Stmt(); }
 ;
 
 elsif_list:
@@ -213,6 +246,6 @@ expr:
 
 int main() {
 	int result = yyparse();
- 	if (result == 0) std::cout << "Success.\n";
+// 	if (result == 0) std::cout << "Success.\n";
 	return result;
 }
