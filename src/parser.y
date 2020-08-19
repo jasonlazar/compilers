@@ -58,7 +58,7 @@ int linecount=1;
 %token T_assign	":="
 
 %token<id> T_id
-%token T_num
+%token<num> T_num
 %token T_constchar
 %token<str> T_string
 
@@ -93,6 +93,7 @@ int linecount=1;
 
 	Type type;
 	char* id;
+	int num;
 	std::string* str;
 }
 
@@ -230,34 +231,34 @@ atom:
 ;
 
 expr:
-	atom	{  $$ = $1; }
-|	T_num	{  $$ = new Expr; }
-|	T_constchar	{  $$ = new Expr; }
-|	"(" expr ")"	{  $$ = new Expr; }
-|	"+" expr	{  $$ = new Expr; }
-|	"-" expr	{  $$ = new Expr; }
-|	expr "+" expr	{  $$ = new Expr; }
-|	expr "-" expr	{  $$ = new Expr; }
-|	expr "*" expr	{  $$ = new Expr; }
-|	expr "/" expr	{  $$ = new Expr; }
-|	expr "mod" expr	{  $$ = new Expr; }
-|	expr "=" expr	{  $$ = new Expr; }
-|	expr "<>" expr	{  $$ = new Expr; }
-|	expr "<" expr	{  $$ = new Expr; }
-|	expr ">" expr	{  $$ = new Expr; }
-|	expr "<=" expr	{  $$ = new Expr; }
-|	expr ">=" expr	{  $$ = new Expr; }
-|	"true"	{  $$ = new Expr; }
-|	"false"	{  $$ = new Expr; }
-|	"not" expr	{  $$ = new Expr; }
-|	expr "and" expr	{  $$ = new Expr; }
-|	expr "or" expr	{  $$ = new Expr; }
+	atom					{  $$ = $1; }
+|	T_num					{  $$ = new ConstInt($1); }
+|	T_constchar				{  $$ = new Expr; }
+|	"(" expr ")"			{  $$ = new Expr; }
+|	"+" expr				{  $$ = new Expr; }
+|	"-" expr				{  $$ = new Expr; }
+|	expr "+" expr			{  $$ = new Expr; }
+|	expr "-" expr			{  $$ = new Expr; }
+|	expr "*" expr			{  $$ = new Expr; }
+|	expr "/" expr			{  $$ = new Expr; }
+|	expr "mod" expr			{  $$ = new Expr; }
+|	expr "=" expr			{  $$ = new Expr; }
+|	expr "<>" expr			{  $$ = new Expr; }
+|	expr "<" expr			{  $$ = new Expr; }
+|	expr ">" expr			{  $$ = new Expr; }
+|	expr "<=" expr			{  $$ = new Expr; }
+|	expr ">=" expr			{  $$ = new Expr; }
+|	"true"					{  $$ = new Expr; }
+|	"false"					{  $$ = new Expr; }
+|	"not" expr				{  $$ = new Expr; }
+|	expr "and" expr			{  $$ = new Expr; }
+|	expr "or" expr			{  $$ = new Expr; }
 |	"new" type "[" expr "]"	{  $$ = new Expr; }
-|	"nil"	{  $$ = new Expr; }
-|	"nil?" "(" expr ")"	{  $$ = new Expr; }
-|	expr "#" expr	{  $$ = new Expr; }
-|	"head" "(" expr ")"	{  $$ = new Expr; }
-|	"tail" "(" expr ")"	{  $$ = new Expr; }
+|	"nil"					{  $$ = new Expr; }
+|	"nil?" "(" expr ")"		{  $$ = new Expr; }
+|	expr "#" expr			{  $$ = new Expr; }
+|	"head" "(" expr ")"		{  $$ = new Expr; }
+|	"tail" "(" expr ")"		{  $$ = new Expr; }
 ;
 
 %%

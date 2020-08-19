@@ -424,6 +424,17 @@ class ArrayItem : public Atom {
 		Expr* pos;
 };
 
+class ConstInt : public Expr {
+	public:
+		ConstInt(int n) : num(n) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ConstInt(" << num << ")";
+		}
+
+	private:
+		int num;
+};
 
 typedef std::vector<std::string> Id_List;
 typedef std::vector<Decl*> Decl_List;

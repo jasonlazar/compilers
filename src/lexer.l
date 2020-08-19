@@ -129,7 +129,7 @@ W	[ \r\t]
 ":="	{ return T_assign; }
 
 {L}({L}|{D}|[_?])*	{ yylval.id = strdup(yytext); return T_id; }
-{D}+		{ return T_num; }
+{D}+		{ yylval.num = atoi(yytext); return T_num; }
 \'({Esc}|[^\'\"\\])\'	{ return T_constchar; }
 \"({Esc}|[^\'\"\r\n\\])*\"	{ yylval.str = fixEscape(yytext); return T_string; }
 
