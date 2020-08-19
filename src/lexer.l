@@ -8,6 +8,68 @@
 #include "lexer.hpp"
 #include "parser.hpp"
 
+char hex2bin( const char *s )
+{
+    char ret=0;
+    int i;
+    for( i=0; i<2; i++ )
+    {
+        char c = *s++;
+        char n=0;
+        if( '0'<=c && c<='9' )
+            n = c-'0';
+        else if( 'a'<=c && c<='f' )
+            n = 10 + c-'a';
+        else if( 'A'<=c && c<='F' )
+            n = 10 + c-'A';
+        ret = n + ret*16;
+    }
+    return ret;
+}
+
+std::string* fixEscape (char* original){
+	std::string* fixed = new std::string();
+	for (int i=0; original[i] != '\0'; ++i) {
+		char c = original[i];
+		if (c != '\\') fixed->push_back(c);
+		else {
+			c = original[++i];
+			switch(c) {
+				case 'n':
+					fixed->push_back('\n');
+					break;
+				case 't':
+					fixed->push_back('\t');
+					break;
+				case 'r':
+					fixed->push_back('\r');
+					break;
+				case '0':
+					fixed->push_back('\0');
+					break;
+				case '\\':
+					fixed->push_back('\\');
+					break;
+				case '\'':
+					fixed->push_back('\'');
+					break;
+				case '\"':
+					fixed->push_back('\"');
+					break;
+				case 'x':
+					++i;
+					fixed->push_back(hex2bin(original+i));
+					++i;
+					break;
+				default:
+					break;
+			}
+		}
+	}
+	fixed->pop_back();
+	fixed->erase(fixed->begin());
+	return fixed;
+}
 %}
 
 L	[A-Za-z]
@@ -69,7 +131,7 @@ W	[ \r\t]
 {L}({L}|{D}|[_?])*	{ yylval.id = strdup(yytext); return T_id; }
 {D}+		{ return T_num; }
 \'({Esc}|[^\'\"\\])\'	{ return T_constchar; }
-\"({Esc}|[^\'\"\r\n\\])*\"	{ return T_string; }
+\"({Esc}|[^\'\"\r\n\\])*\"	{ yylval.str = fixEscape(yytext); return T_string; }
 
 \n		{ linecount++; }
 {W}+	{ /* nothing */ }
