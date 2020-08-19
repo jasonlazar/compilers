@@ -60,7 +60,7 @@ int linecount=1;
 %token<id> T_id
 %token T_num
 %token T_constchar
-%token T_string
+%token<str> T_string
 
 %left "or"
 %left "and"
@@ -93,6 +93,7 @@ int linecount=1;
 
 	Type type;
 	char* id;
+	std::string* str;
 }
 
 %type<func> func_def
@@ -112,6 +113,9 @@ int linecount=1;
 %type<simple_list> simple_list
 %type<call> call
 %type<expr_list> expr_list
+%type<type> type
+%type<atom> atom
+%type<expr> expr
 
 %%
 
@@ -142,15 +146,15 @@ def:
 ;
 
 header:
-	type T_id "(" formal formal_list ")"	{ $5->insert($5->begin(), $4); $$ = new Header(TYPE, $2, *$5); }
-|	type T_id "(" ")"						{ $$ = new Header(TYPE, $2); }
+	type T_id "(" formal formal_list ")"	{ $5->insert($5->begin(), $4); $$ = new Header($1, $2, *$5); }
+|	type T_id "(" ")"						{ $$ = new Header($1, $2); }
 |	T_id "(" formal formal_list ")"			{ $4->insert($4->begin(), $3); $$ = new Header(TYPE_VOID, $1, *$4); }
 |	T_id "(" ")"							{ $$ = new Header(TYPE_VOID, $1); }
 ;
 
 formal:
-	"ref" type T_id id_list	{ $4->insert($4->begin(), $3); $$ = new Formal(TYPE, *$4); }
-|	type T_id id_list { $3->insert($3->begin(), $2); $$ = new Formal(TYPE, *$3); }
+	"ref" type T_id id_list	{ $4->insert($4->begin(), $3); $$ = new Formal(true, $2, *$4); }
+|	type T_id id_list { $3->insert($3->begin(), $2); $$ = new Formal(false, $1, *$3); }
 ;
 
 formal_list:
@@ -164,11 +168,11 @@ id_list:
 ;
 
 type:
-	"int"
-|	"bool"
-|	"char"
-|	type "[" "]"
-|	"list" "[" type "]"
+	"int"				{ $$ = TYPE_INT; }
+|	"bool"				{ $$ = TYPE_BOOL; }
+|	"char"				{ $$ = TYPE_CHAR; }
+|	type "[" "]"		{ $$ = TYPE_ARRAY; }
+|	"list" "[" type "]"	{ $$ = TYPE_LIST; }
 ;
 
 func_decl:
@@ -176,16 +180,16 @@ func_decl:
 ;
 
 var_def:
-	type T_id id_list { $3->insert($3->begin(), $2); $$ = new VarDef(TYPE, *$3); }
+	type T_id id_list { $3->insert($3->begin(), $2); $$ = new VarDef($1, *$3); }
 ;
 
 stmt:
 	simple															{ $$ = $1; }
 |	"exit"															{ $$ = new Exit(); }
-|	"return" expr													{ $$ = new Return(new Expr); }
-|	"if" expr ":" stmt_list elsif_list "end"						{ $$ = new If(new Expr, *$4, *$5); }
-|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"	{ $$ = new If(new Expr, *$4, *$5, *$8); }
-|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"	{ $$ = new For(*$2, new Expr, *$6, *$8); }
+|	"return" expr													{ $$ = new Return($2); }
+|	"if" expr ":" stmt_list elsif_list "end"						{ $$ = new If($2, *$4, *$5); }
+|	"if" expr ":" stmt_list elsif_list "else" ":" stmt_list "end"	{ $$ = new If($2, *$4, *$5, *$8); }
+|	"for" simple_list ";" expr ";" simple_list ":" stmt_list "end"	{ $$ = new For(*$2, $4, *$6, *$8); }
 ;
 
 elsif_list:
@@ -194,12 +198,12 @@ elsif_list:
 ;
 
 elsif_stmt:
-	"elsif" expr ":" stmt_list	{ $$ = new Elsif(new Expr, *$4); }
+	"elsif" expr ":" stmt_list	{ $$ = new Elsif($2, *$4); }
 ;
 
 simple:
 	"skip"			{ $$ = new Skip(); }
-|	atom ":=" expr	{ $$ = new Assign(new Atom, new Expr); }
+|	atom ":=" expr	{ $$ = new Assign($1, $3); }
 |	call			{ $$ = $1; }
 ;
 
@@ -209,51 +213,51 @@ simple_list:
 ;
 
 call:
-	T_id "(" expr expr_list ")"	{ $4->insert($4->begin(), new Expr); $$ = new Call($1, *$4); }
+	T_id "(" expr expr_list ")"	{ $4->insert($4->begin(), $3); $$ = new Call($1, *$4); }
 |	T_id "(" ")"				{ $$ = new Call($1); }
 ;
 
 expr_list:
 	/* nothing */		{ $$ = new Expr_List(); }
-|	expr_list "," expr	{ $1->push_back(new Expr); }
+|	expr_list "," expr	{ $1->push_back($3); }
 ;
 
 atom:
-	T_id
-|	T_string
-|	atom "[" expr "]"
-|	call
+	T_id				{ $$ = new Id($1); }
+|	T_string			{ $$ = new ConstString(*$1); }
+|	atom "[" expr "]"	{ $$ = new ArrayItem($1, $3); }
+|	call				{ $$ = $1; }
 ;
 
 expr:
-	atom
-|	T_num
-|	T_constchar
-|	"(" expr ")"
-|	"+" expr
-|	"-" expr
-|	expr "+" expr
-|	expr "-" expr
-|	expr "*" expr
-|	expr "/" expr
-|	expr "mod" expr
-|	expr "=" expr
-|	expr "<>" expr
-|	expr "<" expr
-|	expr ">" expr
-|	expr "<=" expr
-|	expr ">=" expr
-|	"true"
-|	"false"
-|	"not" expr
-|	expr "and" expr
-|	expr "or" expr
-|	"new" type "[" expr "]"
-|	"nil"
-|	"nil?" "(" expr ")"
-|	expr "#" expr
-|	"head" "(" expr ")"
-|	"tail" "(" expr ")"
+	atom	{  $$ = $1; }
+|	T_num	{  $$ = new Expr; }
+|	T_constchar	{  $$ = new Expr; }
+|	"(" expr ")"	{  $$ = new Expr; }
+|	"+" expr	{  $$ = new Expr; }
+|	"-" expr	{  $$ = new Expr; }
+|	expr "+" expr	{  $$ = new Expr; }
+|	expr "-" expr	{  $$ = new Expr; }
+|	expr "*" expr	{  $$ = new Expr; }
+|	expr "/" expr	{  $$ = new Expr; }
+|	expr "mod" expr	{  $$ = new Expr; }
+|	expr "=" expr	{  $$ = new Expr; }
+|	expr "<>" expr	{  $$ = new Expr; }
+|	expr "<" expr	{  $$ = new Expr; }
+|	expr ">" expr	{  $$ = new Expr; }
+|	expr "<=" expr	{  $$ = new Expr; }
+|	expr ">=" expr	{  $$ = new Expr; }
+|	"true"	{  $$ = new Expr; }
+|	"false"	{  $$ = new Expr; }
+|	"not" expr	{  $$ = new Expr; }
+|	expr "and" expr	{  $$ = new Expr; }
+|	expr "or" expr	{  $$ = new Expr; }
+|	"new" type "[" expr "]"	{  $$ = new Expr; }
+|	"nil"	{  $$ = new Expr; }
+|	"nil?" "(" expr ")"	{  $$ = new Expr; }
+|	expr "#" expr	{  $$ = new Expr; }
+|	"head" "(" expr ")"	{  $$ = new Expr; }
+|	"tail" "(" expr ")"	{  $$ = new Expr; }
 ;
 
 %%

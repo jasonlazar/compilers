@@ -5,12 +5,27 @@
 #include <vector>
 #include <string>
 
-enum Type {TYPE_VOID, TYPE};
+enum Type {TYPE_VOID, TYPE_INT, TYPE_BOOL, TYPE_CHAR, TYPE_ARRAY, TYPE_LIST};
 
 inline std::ostream& operator << (std::ostream& out, Type t){
 	switch(t) {
 	case TYPE_VOID:
 		out << "VOID";
+		break;
+	case TYPE_INT:
+		out << "Int";
+		break;
+	case TYPE_BOOL:
+		out << "Bool";
+		break;
+	case TYPE_CHAR:
+		out << "Char";
+		break;
+	case TYPE_ARRAY:
+		out << "Array";
+		break;
+	case TYPE_LIST:
+		out << "List";
 		break;
 	default:
 		out << "Type";
@@ -49,12 +64,13 @@ class Expr : public AST {
 
 class Formal : public AST {
 	public:
-		Formal(Type t, std::vector<std::string>& ids):
-			type(t), id_list(ids) {}
+		Formal(bool byreference, Type t, std::vector<std::string>& ids):
+			ref(byreference), type(t), id_list(ids) {}
 
 		~Formal() {}
 
 		virtual void printOn(std::ostream& out) const override {
+			if (ref) out << "Ref ";
 			out << type <<"(";
 			bool first = true;
 			for (std::string id : id_list){
@@ -66,6 +82,7 @@ class Formal : public AST {
 		}
 
 	private:
+		bool ref;
 		Type type;
 		std::vector<std::string> id_list;
 };
@@ -208,7 +225,7 @@ class Assign : public Simple {
 		Expr* rval;
 };
 
-class Call : public Simple {
+class Call : public Simple, public Atom {
 	public:
 		Call(std::string id, const std::vector<Expr*>& exprs = std::vector<Expr*>()) :
 			name(id), parameters(exprs) {}
@@ -363,6 +380,50 @@ class For : public Stmt {
 		std::vector<Simple*> after;
 		std::vector<Stmt*> stmt_list;
 };
+
+class Id : public Atom {
+	public:
+		Id(std::string name) : id(name) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "Id(" << id << ")";
+		}
+
+	private:
+		std::string id;
+};
+
+class ConstString : public Atom {
+	public:
+		ConstString(std::string val) : mystring(val) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ConstString(\"" << mystring << "\")";
+		}
+
+	private:
+		std::string mystring;
+};
+
+class ArrayItem : public Atom {
+	public:
+		ArrayItem(Atom* a, Expr* e) :
+			array(a), pos(e) {}
+
+		~ArrayItem() {
+			delete array;
+			delete pos;
+		}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ArrayItem(" << *array << ", " << *pos << ")";
+		}
+
+	private:
+		Atom* array;
+		Expr* pos;
+};
+
 
 typedef std::vector<std::string> Id_List;
 typedef std::vector<Decl*> Decl_List;
