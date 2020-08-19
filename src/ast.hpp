@@ -21,10 +21,10 @@ inline std::ostream& operator << (std::ostream& out, Type t){
 class AST {
 	public:
 		virtual ~AST() {}
-		virtual void printOn(std::ostream &out) const = 0;
+		virtual void printOn(std::ostream& out) const = 0;
 };
 
-inline std::ostream& operator << (std::ostream &out, const AST &t){
+inline std::ostream& operator << (std::ostream& out, const AST &t){
 	t.printOn(out);
 	return out;
 }
@@ -79,7 +79,7 @@ class Header : public AST {
 			for (Formal* f : formal_list) delete f;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Header(";
 			out << type << " ";
 			out << id << " Parameters(";
@@ -98,6 +98,13 @@ class Header : public AST {
 		std::vector<Formal*> formal_list;
 };
 
+class Atom : public Expr {
+	public:
+		virtual void printOn(std::ostream& out) const override {
+			out << "Atom";
+		}
+};
+
 class FunctionDef : public Decl {
 	public:
 		FunctionDef(Header *h, std::vector<Decl*>& decl_l, std::vector<Stmt*>& stmt_l):
@@ -109,7 +116,7 @@ class FunctionDef : public Decl {
 			for (Stmt* s : stmt_list) delete s;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "FunctionDef( ";
 			out << *header;
 			for (Decl *d : decl_list) {
@@ -137,7 +144,7 @@ class FunctionDecl : public Decl {
 			delete header;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "FunctionDecl(" << header << ")";
 		}
 
@@ -152,7 +159,7 @@ class VarDef : public Decl {
 
 		~VarDef() {}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "VarDef(" << type << "(";
 			bool first = true;
 			for (std::string id : id_list) {
@@ -170,21 +177,65 @@ class VarDef : public Decl {
 
 class Simple : public Stmt {
 	public:
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Simple";
 		}
 };
 
 class Skip : public Simple {
 	public:
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Skip";
 		}
 };
 
+class Assign : public Simple {
+	public:
+		Assign(Atom* lhs, Expr* rhs) :
+			lval(lhs), rval(rhs) {}
+
+		~Assign() {
+			delete lval;
+			delete rval;
+		}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "Assign(" << *lval << ", " << *rval << ")";
+		}
+
+	private:
+		Atom* lval;
+		Expr* rval;
+};
+
+class Call : public Simple {
+	public:
+		Call(std::string id, const std::vector<Expr*>& exprs = std::vector<Expr*>()) :
+			name(id), parameters(exprs) {}
+
+		~Call() {
+			for (Expr* e : parameters) delete e;
+		}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "Call(" << name << ", Args(";
+			bool first = true;
+			for (Expr* e : parameters) {
+				if (!first) out << ", ";
+				first = false;
+				out << *e;
+			}
+			out << "))";
+		}
+
+	private:
+		std::string name;
+		std::vector<Expr*> parameters;
+};
+
 class Exit : public Stmt {
 	public:
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Exit";
 		}
 };
@@ -193,7 +244,7 @@ class Return : public Stmt {
 	public:
 		Return(Expr* ex) : expr(ex) {}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Return(" << *expr << ")";
 		}
 
@@ -211,7 +262,7 @@ class Elsif : public Stmt {
 			for (Stmt* st : stmt_list) delete st;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "Elsif(" << *cond << ", (";
 			bool first = true;
 			for (Stmt* st : stmt_list) {
@@ -239,7 +290,7 @@ class If : public Stmt {
 			for (Stmt* st : else_statements) delete st;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "If(" << *cond << ", (";
 			bool first = true;
 			for (Stmt* st : statements){
@@ -281,7 +332,7 @@ class For : public Stmt {
 			for (Stmt* st : stmt_list) delete st;
 		}
 
-		virtual void printOn(std::ostream &out) const override {
+		virtual void printOn(std::ostream& out) const override {
 			out << "For(Initializers(";
 			bool first = true;
 			for (Simple* s : init) {
@@ -319,5 +370,6 @@ typedef std::vector<Stmt*> Stmt_List;
 typedef std::vector<Formal*> Formal_List;
 typedef std::vector<Elsif*> Elsif_List;
 typedef std::vector<Simple*> Simple_List;
+typedef std::vector<Expr*> Expr_List;
 
 #endif

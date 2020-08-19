@@ -83,9 +83,13 @@ int linecount=1;
 	Formal_List* formal_list;
 	Elsif_List* elsif_list;
 	Simple_List* simple_list;
+	Expr_List* expr_list;
 	Decl* decl;
 	Simple* simple;
 	Elsif* elsif;
+	Expr* expr;
+	Atom* atom;
+	Call* call;
 
 	Type type;
 	char* id;
@@ -106,6 +110,8 @@ int linecount=1;
 %type<elsif_list> elsif_list
 %type<elsif> elsif_stmt
 %type<simple_list> simple_list
+%type<call> call
+%type<expr_list> expr_list
 
 %%
 
@@ -193,8 +199,8 @@ elsif_stmt:
 
 simple:
 	"skip"			{ $$ = new Skip(); }
-|	atom ":=" expr	{ $$ = new Simple(); }
-|	call			{ $$ = new Simple(); }
+|	atom ":=" expr	{ $$ = new Assign(new Atom, new Expr); }
+|	call			{ $$ = $1; }
 ;
 
 simple_list:
@@ -203,13 +209,13 @@ simple_list:
 ;
 
 call:
-	T_id "(" expr expr_list ")"
-|	T_id "(" ")"
+	T_id "(" expr expr_list ")"	{ $4->insert($4->begin(), new Expr); $$ = new Call($1, *$4); }
+|	T_id "(" ")"				{ $$ = new Call($1); }
 ;
 
 expr_list:
-	/* nothing */
-|	expr_list "," expr
+	/* nothing */		{ $$ = new Expr_List(); }
+|	expr_list "," expr	{ $1->push_back(new Expr); }
 ;
 
 atom:
