@@ -7,6 +7,10 @@
 
 enum Type {TYPE_VOID, TYPE_INT, TYPE_BOOL, TYPE_CHAR, TYPE_ARRAY, TYPE_LIST};
 
+enum unary_ops {UPLUS, UMINUS, NOT, IS_NIL, HEAD, TAIL};
+
+enum binary_ops {PLUS, MINUS, TIMES, DIV, MOD, EQ, NEQ, GREATER, LESS, GEQ, LEQ, AND, OR, CONS};
+
 inline std::ostream& operator << (std::ostream& out, Type t){
 	switch(t) {
 	case TYPE_VOID:
@@ -29,6 +33,58 @@ inline std::ostream& operator << (std::ostream& out, Type t){
 		break;
 	default:
 		out << "Type";
+	}
+	return out;
+}
+
+inline std:: ostream& operator << (std::ostream& out, unary_ops op){
+	switch(op) {
+		case UPLUS:
+			out << "+"; break;
+		case UMINUS:
+			out << "-"; break;
+		case NOT:
+			out << "not"; break;
+		case IS_NIL:
+			out << "nil?"; break;
+		case HEAD:
+			out << "head"; break;
+		case TAIL:
+			out << "tail"; break;
+	}
+	return out;
+}
+
+inline std::ostream& operator << (std::ostream& out, binary_ops op){
+	switch(op) {
+		case PLUS:
+			out << "+"; break;
+		case MINUS:
+			out << "-"; break;
+		case TIMES:
+			out << "*"; break;
+		case DIV:
+			out << "/"; break;
+		case MOD:
+			out << "mod"; break;
+		case EQ:
+			out << "="; break;
+		case NEQ:
+			out << "<>"; break;
+		case GREATER:
+			out << ">"; break;
+		case LESS:
+			out << "<"; break;
+		case GEQ:
+			out << ">="; break;
+		case LEQ:
+			out << "<="; break;
+		case AND:
+			out << "and"; break;
+		case OR:
+			out << "or"; break;
+		case CONS:
+			out << "#"; break;
 	}
 	return out;
 }
@@ -434,6 +490,83 @@ class ConstInt : public Expr {
 
 	private:
 		int num;
+};
+
+class ConstChar : public Expr {
+	public:
+		ConstChar(char c) : mychar(c) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ConstChar(\'" << mychar << "\')";
+		}
+
+	private:
+		char mychar;
+};
+
+class UnOp : public Expr {
+	public:
+		UnOp(unary_ops o,  Expr* e) :
+			op(o), expr(e) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "UnOp(" << op << "(" << *expr << "))";
+		}
+
+	private:
+		unary_ops op;
+		Expr* expr;
+};
+
+class BinOp : public Expr {
+	public:
+		BinOp(Expr* l, binary_ops o, Expr* r) :
+			left(l), op(o), right(r) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "BinOp(" << op << "(";
+			out << *left << ", " << *right << "))";
+		}
+
+	private:
+		Expr* left;
+		binary_ops op;
+		Expr* right;
+};
+
+class ConstBool : public Expr {
+	public:
+		ConstBool(bool b) : 
+			boolean(b) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ConstBool(";
+			out << (boolean ? "true" : "false") << ")";
+		}
+
+	private:
+		bool boolean;
+};
+
+class New : public Expr {
+	public:
+		New(Type t, Expr* e) :
+			type(t), size(e) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "New(" << type << ", " << *size << ")";
+		}
+
+	private:
+		Type type;
+		Expr* size;
+};
+
+class Nil : public Expr {
+	public:
+		virtual void printOn(std::ostream& out) const override {
+			out << "Nil";
+		}
 };
 
 typedef std::vector<std::string> Id_List;

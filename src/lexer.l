@@ -29,7 +29,7 @@ char hex2bin( const char *s )
 
 std::string* fixEscape (char* original){
 	std::string* fixed = new std::string();
-	for (int i=0; original[i] != '\0'; ++i) {
+	for (int i=1; original[i] != '\0'; ++i) {
 		char c = original[i];
 		if (c != '\\') fixed->push_back(c);
 		else {
@@ -67,9 +67,33 @@ std::string* fixEscape (char* original){
 		}
 	}
 	fixed->pop_back();
-	fixed->erase(fixed->begin());
 	return fixed;
 }
+
+char fixChar(char* original) {
+	if (original[1] != '\\') return original[1];
+	switch(original[2]) {
+		case 'n':
+			return '\n';
+		case 't':
+			return '\t';
+		case 'r':
+			return '\r';
+		case '0':
+			return '\0';
+		case '\\':
+			return '\\';
+		case '\'':
+			return '\'';
+		case '\"':
+			return '\"';
+		case 'x':
+			return(hex2bin(original+3));
+		default:
+			return -1;
+	}
+}
+
 %}
 
 L	[A-Za-z]
@@ -130,7 +154,7 @@ W	[ \r\t]
 
 {L}({L}|{D}|[_?])*	{ yylval.id = strdup(yytext); return T_id; }
 {D}+		{ yylval.num = atoi(yytext); return T_num; }
-\'({Esc}|[^\'\"\\])\'	{ return T_constchar; }
+\'({Esc}|[^\'\"\\])\'	{ yylval.ch = fixChar(yytext); return T_constchar; }
 \"({Esc}|[^\'\"\r\n\\])*\"	{ yylval.str = fixEscape(yytext); return T_string; }
 
 \n		{ linecount++; }

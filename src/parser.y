@@ -59,7 +59,7 @@ int linecount=1;
 
 %token<id> T_id
 %token<num> T_num
-%token T_constchar
+%token<ch> T_constchar
 %token<str> T_string
 
 %left "or"
@@ -93,6 +93,7 @@ int linecount=1;
 
 	Type type;
 	char* id;
+	char ch;
 	int num;
 	std::string* str;
 }
@@ -233,32 +234,32 @@ atom:
 expr:
 	atom					{  $$ = $1; }
 |	T_num					{  $$ = new ConstInt($1); }
-|	T_constchar				{  $$ = new Expr; }
-|	"(" expr ")"			{  $$ = new Expr; }
-|	"+" expr				{  $$ = new Expr; }
-|	"-" expr				{  $$ = new Expr; }
-|	expr "+" expr			{  $$ = new Expr; }
-|	expr "-" expr			{  $$ = new Expr; }
-|	expr "*" expr			{  $$ = new Expr; }
-|	expr "/" expr			{  $$ = new Expr; }
-|	expr "mod" expr			{  $$ = new Expr; }
-|	expr "=" expr			{  $$ = new Expr; }
-|	expr "<>" expr			{  $$ = new Expr; }
-|	expr "<" expr			{  $$ = new Expr; }
-|	expr ">" expr			{  $$ = new Expr; }
-|	expr "<=" expr			{  $$ = new Expr; }
-|	expr ">=" expr			{  $$ = new Expr; }
-|	"true"					{  $$ = new Expr; }
-|	"false"					{  $$ = new Expr; }
-|	"not" expr				{  $$ = new Expr; }
-|	expr "and" expr			{  $$ = new Expr; }
-|	expr "or" expr			{  $$ = new Expr; }
-|	"new" type "[" expr "]"	{  $$ = new Expr; }
-|	"nil"					{  $$ = new Expr; }
-|	"nil?" "(" expr ")"		{  $$ = new Expr; }
-|	expr "#" expr			{  $$ = new Expr; }
-|	"head" "(" expr ")"		{  $$ = new Expr; }
-|	"tail" "(" expr ")"		{  $$ = new Expr; }
+|	T_constchar				{  $$ = new ConstChar($1); }
+|	"(" expr ")"			{  $$ = $2; }
+|	"+" expr				{  $$ = new UnOp(UPLUS, $2); }
+|	"-" expr				{  $$ = new UnOp(UMINUS, $2); }
+|	expr "+" expr			{  $$ = new BinOp($1, PLUS, $3); }
+|	expr "-" expr			{  $$ = new BinOp($1, MINUS, $3); }
+|	expr "*" expr			{  $$ = new BinOp($1, TIMES, $3); }
+|	expr "/" expr			{  $$ = new BinOp($1, DIV, $3); }
+|	expr "mod" expr			{  $$ = new BinOp($1, MOD, $3); }
+|	expr "=" expr			{  $$ = new BinOp($1, EQ, $3); }
+|	expr "<>" expr			{  $$ = new BinOp($1, NEQ, $3); }
+|	expr "<" expr			{  $$ = new BinOp($1, LESS, $3); }
+|	expr ">" expr			{  $$ = new BinOp($1, GREATER, $3); }
+|	expr "<=" expr			{  $$ = new BinOp($1, LEQ, $3); }
+|	expr ">=" expr			{  $$ = new BinOp($1, GEQ, $3); }
+|	"true"					{  $$ = new ConstBool(true); }
+|	"false"					{  $$ = new ConstBool(false); }
+|	"not" expr				{  $$ = new UnOp(NOT, $2); }
+|	expr "and" expr			{  $$ = new BinOp($1, AND, $3); }
+|	expr "or" expr			{  $$ = new BinOp($1, AND, $3); }
+|	"new" type "[" expr "]"	{  $$ = new New($2, $4); }
+|	"nil"					{  $$ = new Nil; }
+|	"nil?" "(" expr ")"		{  $$ = new UnOp(IS_NIL, $3); }
+|	expr "#" expr			{  $$ = new BinOp($1, CONS, $3); }
+|	"head" "(" expr ")"		{  $$ = new UnOp(HEAD, $3); }
+|	"tail" "(" expr ")"		{  $$ = new UnOp(TAIL, $3); }
 ;
 
 %%
