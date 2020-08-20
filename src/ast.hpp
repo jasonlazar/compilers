@@ -5,31 +5,31 @@
 #include <vector>
 #include <string>
 
-enum Type {TYPE_VOID, TYPE_INT, TYPE_BOOL, TYPE_CHAR, TYPE_ARRAY, TYPE_LIST};
+#include "symbol.h"
 
 enum unary_ops {UPLUS, UMINUS, NOT, IS_NIL, HEAD, TAIL};
 
 enum binary_ops {PLUS, MINUS, TIMES, DIV, MOD, EQ, NEQ, GREATER, LESS, GEQ, LEQ, AND, OR, CONS};
 
 inline std::ostream& operator << (std::ostream& out, Type t){
-	switch(t) {
+	switch(t->kind) {
 	case TYPE_VOID:
 		out << "VOID";
 		break;
-	case TYPE_INT:
+	case TYPE_INTEGER:
 		out << "Int";
 		break;
-	case TYPE_BOOL:
+	case TYPE_BOOLEAN:
 		out << "Bool";
 		break;
 	case TYPE_CHAR:
 		out << "Char";
 		break;
 	case TYPE_ARRAY:
-		out << "Array";
+		out << "Array of " << t->refType;
 		break;
 	case TYPE_LIST:
-		out << "List";
+		out << "List of " << t->refType;
 		break;
 	default:
 		out << "Type";

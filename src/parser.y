@@ -1,4 +1,9 @@
 %{
+
+extern "C"{
+	#include "symbol.h"
+}
+
 #include <iostream>
 
 #include "lexer.hpp"
@@ -150,8 +155,8 @@ def:
 header:
 	type T_id "(" formal formal_list ")"	{ $5->insert($5->begin(), $4); $$ = new Header($1, $2, *$5); }
 |	type T_id "(" ")"						{ $$ = new Header($1, $2); }
-|	T_id "(" formal formal_list ")"			{ $4->insert($4->begin(), $3); $$ = new Header(TYPE_VOID, $1, *$4); }
-|	T_id "(" ")"							{ $$ = new Header(TYPE_VOID, $1); }
+|	T_id "(" formal formal_list ")"			{ $4->insert($4->begin(), $3); $$ = new Header(typeVoid, $1, *$4); }
+|	T_id "(" ")"							{ $$ = new Header(typeVoid, $1); }
 ;
 
 formal:
@@ -170,11 +175,11 @@ id_list:
 ;
 
 type:
-	"int"				{ $$ = TYPE_INT; }
-|	"bool"				{ $$ = TYPE_BOOL; }
-|	"char"				{ $$ = TYPE_CHAR; }
-|	type "[" "]"		{ $$ = TYPE_ARRAY; }
-|	"list" "[" type "]"	{ $$ = TYPE_LIST; }
+	"int"				{ $$ = typeInteger; }
+|	"bool"				{ $$ = typeBoolean; }
+|	"char"				{ $$ = typeChar; }
+|	type "[" "]"		{ $$ = typeArray(0, $1); }
+|	"list" "[" type "]"	{ $$ = typeList($3); }
 ;
 
 func_decl:

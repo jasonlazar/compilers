@@ -4,6 +4,8 @@
 %{
 #include <cstring>
 
+#include "symbol.h"
+
 #include "ast.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
