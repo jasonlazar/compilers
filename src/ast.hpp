@@ -25,7 +25,7 @@ inline std::ostream& operator << (std::ostream& out, Type t){
 	case TYPE_CHAR:
 		out << "Char";
 		break;
-	case TYPE_ARRAY:
+	case TYPE_IARRAY:
 		out << "Array of " << t->refType;
 		break;
 	case TYPE_LIST:

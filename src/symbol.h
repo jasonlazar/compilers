@@ -49,19 +49,20 @@ typedef const char *  RepString;          /* Συμβολοσειρές         
 
 typedef struct Type_tag * Type;
 
-typedef enum {                               /***** Το είδος του τύπου ****/
+typedef enum {                           /***** Το είδος του τύπου ****/
        TYPE_VOID,                        /* Κενός τύπος αποτελέσματος */
        TYPE_INTEGER,                     /* Ακέραιοι                  */
        TYPE_BOOLEAN,                     /* Λογικές τιμές             */
        TYPE_CHAR,                        /* Χαρακτήρες                */
        TYPE_REAL,                        /* Πραγματικοί               */
-       TYPE_ARRAY,                       /* Πίνακες γνωστού μεγέθους  */
-       TYPE_LIST,                        /* Πίνακες άγνωστου μεγέθους */
-       TYPE_POINTER                      /* Δείκτες                   */
+       TYPE_IARRAY,                      /* Πίνακες                   */
+       TYPE_LIST,                        /* Λίστες                    */
+       TYPE_POINTER,                     /* Δείκτες                   */
+       TYPE_ANY
 } Types;
 
 struct Type_tag {
-	Types          kind;
+    Types          kind;
     Type           refType;              /* Τύπος αναφοράς            */
     RepInteger     size;                 /* Μέγεθος, αν είναι πίνακας */
     unsigned int   refCount;             /* Μετρητής αναφορών         */
@@ -205,7 +206,7 @@ void          destroyEntry       (SymbolEntry * e);
 SymbolEntry * lookupEntry        (const char * name, LookupType type,
                                   bool err);
 
-Type          typeArray          (RepInteger size, Type refType);
+Type          typeIArray         (Type refType);
 Type          typeList           (Type refType);
 Type          typePointer        (Type refType);
 void          destroyType        (Type type);

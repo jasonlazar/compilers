@@ -178,7 +178,7 @@ type:
 	"int"				{ $$ = typeInteger; }
 |	"bool"				{ $$ = typeBoolean; }
 |	"char"				{ $$ = typeChar; }
-|	type "[" "]"		{ $$ = typeArray(0, $1); }
+|	type "[" "]"		{ $$ = typeIArray($1); }
 |	"list" "[" type "]"	{ $$ = typeList($3); }
 ;
 
