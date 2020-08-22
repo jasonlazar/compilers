@@ -83,7 +83,7 @@ class Formal : public AST {
 class Header : public AST {
 	public:
 		Header(Type t, std::string name, const std::vector<Formal*>& formal_l = std::vector<Formal*>()) :
-			type(t), id(name), formal_list(formal_l), is_main(false) {}
+			type(t), id(name), formal_list(formal_l), is_def(true), is_main(false) {}
 
 		~Header(){
 			for (Formal* f : formal_list) delete f;
@@ -104,6 +104,8 @@ class Header : public AST {
 
 		virtual void sem() override {
 			SymbolEntry* func = newFunction(id.c_str());
+			if (!is_def)
+				forwardFunction(func);
 			for (Formal* f : formal_list) {
 				for (std::string id : f->getIdList()) {
 					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
@@ -118,7 +120,7 @@ class Header : public AST {
 				if (formal_list.size() != 0) fatal("Main function %s shouldn't take any arguments",  id.c_str());
 			}
 
-			printSymbolTable();
+			// std::cout << (func->u.eFunction.isForward ? "Forward Function: " : "Function: " ) << func->id << std::endl;
 
 		}
 
@@ -126,10 +128,15 @@ class Header : public AST {
 			is_main = true;
 		}
 
+		void unset_def() {
+			is_def = false;
+		}
+
 	private:
 		Type type;
 		std::string id;
 		std::vector<Formal*> formal_list;
+		bool is_def;
 		bool is_main;
 };
 
@@ -167,6 +174,9 @@ class FunctionDef : public Decl {
 			for (Decl *d : decl_list) {
 				d->sem();
 			}
+
+			printSymbolTable();
+
 			closeScope();
 		}
 
@@ -194,14 +204,15 @@ class FunctionDecl : public Decl {
 			out << "FunctionDecl(" << header << ")";
 		}
 
-		// virtual void sem() override {
-		// 	openScope();
-		// 	header->sem();
-		// 	for (Decl *d : decl_list) {
-		// 		d->sem();
-		// 	}
-		// 	closeScope();
-		// }
+		virtual void sem() override {
+			openScope();
+			header->unset_def();
+			header->sem();
+			
+			printSymbolTable();
+
+			closeScope();
+		}
 
 	private:
 		Header* header;
@@ -223,6 +234,12 @@ class VarDef : public Decl {
 				out << id;
 			}
 			out << "))";
+		}
+
+		virtual void sem() override {
+			for (std::string id : id_list) {
+				newVariable(id.c_str(), type);
+			}
 		}
 
 	private:
