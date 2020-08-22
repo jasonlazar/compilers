@@ -2,6 +2,7 @@
 
 extern "C"{
 	#include "symbol.h"
+	#include "error.h"
 }
 
 #include <iostream>
@@ -128,7 +129,9 @@ int linecount=1;
 
 program:
 	func_def {
-		std::cout << "AST: " << *$1 << std::endl;
+		$1->set_main();
+		$1->sem();
+//		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
 
@@ -161,7 +164,7 @@ header:
 
 formal:
 	"ref" type T_id id_list	{ $4->insert($4->begin(), $3); $$ = new Formal(true, $2, *$4); }
-|	type T_id id_list { $3->insert($3->begin(), $2); $$ = new Formal(false, $1, *$3); }
+|	type T_id id_list 		{ $3->insert($3->begin(), $2); $$ = new Formal(false, $1, *$3); }
 ;
 
 formal_list:
@@ -271,6 +274,6 @@ expr:
 
 int main() {
 	int result = yyparse();
-// 	if (result == 0) std::cout << "Success.\n";
+ 	if (result == 0) std::cout << "Success.\n";
 	return result;
 }

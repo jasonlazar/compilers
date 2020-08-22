@@ -56,10 +56,11 @@ void fatal (const char * fmt, ...)
    va_list ap;
 
    va_start(ap, fmt);
-   if (fmt[0] == '\r')
+/*   if (fmt[0] == '\r')
       fmt++;
    else
       fprintf(stderr, "%s:%d: ", filename, linecount);
+	  */
    fprintf(stderr, "Fatal error, ");
    vfprintf(stderr, fmt, ap);
    fprintf(stderr, "\n");

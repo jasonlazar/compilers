@@ -6,6 +6,7 @@
 #include <string>
 
 #include "symbol.h"
+#include "error.h"
 
 #include "printers.hpp"
 
@@ -66,7 +67,7 @@ class Formal : public AST {
 class Header : public AST {
 	public:
 		Header(Type t, std::string name, const std::vector<Formal*>& formal_l = std::vector<Formal*>()) :
-			type(t), id(name), formal_list(formal_l) {}
+			type(t), id(name), formal_list(formal_l), is_main(false) {}
 
 		~Header(){
 			for (Formal* f : formal_list) delete f;
@@ -85,10 +86,22 @@ class Header : public AST {
 			out << "))";
 		}
 
+		virtual void sem() override {
+			if (is_main) {
+				if (type->kind != TYPE_VOID) fatal("Main function %s shouldn't have return type", id.c_str());
+				if (formal_list.size() != 0) fatal("Main function %s shouldn't take any arguments",  id.c_str());
+			}
+		}
+
+		void set_main() {
+			is_main = true;
+		}
+
 	private:
 		Type type;
 		std::string id;
 		std::vector<Formal*> formal_list;
+		bool is_main;
 };
 
 class Atom : public Expr {
@@ -97,7 +110,7 @@ class Atom : public Expr {
 class FunctionDef : public Decl {
 	public:
 		FunctionDef(Header *h, std::vector<Decl*>& decl_l, std::vector<Stmt*>& stmt_l):
-			header(h), decl_list(decl_l), stmt_list(stmt_l) {}
+			header(h), decl_list(decl_l), stmt_list(stmt_l), is_main(false) {}
 
 		~FunctionDef() {
 			delete header;
@@ -119,10 +132,20 @@ class FunctionDef : public Decl {
 			out << ")";
 		}
 
+		virtual void sem() override {
+			header->sem();
+		}
+
+		void set_main(){
+			is_main = true;
+			header->set_main();
+		}
+
 	private:
 		Header* header;
 		std::vector<Decl*> decl_list;
 		std::vector<Stmt*> stmt_list;
+		bool is_main;
 };
 
 class FunctionDecl : public Decl {
