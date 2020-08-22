@@ -341,7 +341,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
     return e;
 }
 
-SymbolEntry * newFunction (const char * name, Type result)
+SymbolEntry * newFunction (const char * name)
 {
     SymbolEntry * e = lookupEntry(name, LOOKUP_CURRENT_SCOPE, false);
 
@@ -352,7 +352,7 @@ SymbolEntry * newFunction (const char * name, Type result)
             e->u.eFunction.isForward = false;
             e->u.eFunction.pardef = PARDEF_DEFINE;
             e->u.eFunction.firstArgument = e->u.eFunction.lastArgument = NULL;
-            e->u.eFunction.resultType = result;
+            e->u.eFunction.resultType = NULL;
         }
         return e;
     }

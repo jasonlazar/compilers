@@ -64,6 +64,10 @@ class Formal : public AST {
 			return ref;
 		}
 
+		Type getType() {
+			return type;
+		}
+
 		const std::vector<std::string>& getIdList() const {
 			return id_list;
 		}
@@ -99,13 +103,15 @@ class Header : public AST {
 		}
 
 		virtual void sem() override {
-			SymbolEntry* func = newFunction(id.c_str(), type);
+			SymbolEntry* func = newFunction(id.c_str());
 			for (Formal* f : formal_list) {
 				for (std::string id : f->getIdList()) {
 					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-					newParameter(id.c_str(), type, passmode, func);
+					newParameter(id.c_str(), f->getType(), passmode, func);
 				}
 			}
+
+			endFunctionHeader(func, type);
 
 			if (is_main) {
 				if (type->kind != TYPE_VOID) fatal("Main function %s shouldn't have return type", id.c_str());
@@ -187,6 +193,15 @@ class FunctionDecl : public Decl {
 		virtual void printOn(std::ostream& out) const override {
 			out << "FunctionDecl(" << header << ")";
 		}
+
+		// virtual void sem() override {
+		// 	openScope();
+		// 	header->sem();
+		// 	for (Decl *d : decl_list) {
+		// 		d->sem();
+		// 	}
+		// 	closeScope();
+		// }
 
 	private:
 		Header* header;

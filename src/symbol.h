@@ -195,7 +195,7 @@ void          closeScope         (void);
 
 SymbolEntry * newVariable        (const char * name, Type type);
 SymbolEntry * newConstant        (const char * name, Type type, ...);
-SymbolEntry * newFunction        (const char * name, Type type);
+SymbolEntry * newFunction        (const char * name);
 SymbolEntry * newParameter       (const char * name, Type type,
                                   PassMode mode, SymbolEntry * f);
 SymbolEntry * newTemporary       (Type type);
