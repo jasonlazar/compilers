@@ -7,92 +7,14 @@
 
 #include "symbol.h"
 
-enum unary_ops {UPLUS, UMINUS, NOT, IS_NIL, HEAD, TAIL};
+#include "printers.hpp"
 
-enum binary_ops {PLUS, MINUS, TIMES, DIV, MOD, EQ, NEQ, GREATER, LESS, GEQ, LEQ, AND, OR, CONS};
-
-inline std::ostream& operator << (std::ostream& out, Type t){
-	switch(t->kind) {
-	case TYPE_VOID:
-		out << "VOID";
-		break;
-	case TYPE_INTEGER:
-		out << "Int";
-		break;
-	case TYPE_BOOLEAN:
-		out << "Bool";
-		break;
-	case TYPE_CHAR:
-		out << "Char";
-		break;
-	case TYPE_IARRAY:
-		out << "Array of " << t->refType;
-		break;
-	case TYPE_LIST:
-		out << "List of " << t->refType;
-		break;
-	default:
-		out << "Type";
-	}
-	return out;
-}
-
-inline std:: ostream& operator << (std::ostream& out, unary_ops op){
-	switch(op) {
-		case UPLUS:
-			out << "+"; break;
-		case UMINUS:
-			out << "-"; break;
-		case NOT:
-			out << "not"; break;
-		case IS_NIL:
-			out << "nil?"; break;
-		case HEAD:
-			out << "head"; break;
-		case TAIL:
-			out << "tail"; break;
-	}
-	return out;
-}
-
-inline std::ostream& operator << (std::ostream& out, binary_ops op){
-	switch(op) {
-		case PLUS:
-			out << "+"; break;
-		case MINUS:
-			out << "-"; break;
-		case TIMES:
-			out << "*"; break;
-		case DIV:
-			out << "/"; break;
-		case MOD:
-			out << "mod"; break;
-		case EQ:
-			out << "="; break;
-		case NEQ:
-			out << "<>"; break;
-		case GREATER:
-			out << ">"; break;
-		case LESS:
-			out << "<"; break;
-		case GEQ:
-			out << ">="; break;
-		case LEQ:
-			out << "<="; break;
-		case AND:
-			out << "and"; break;
-		case OR:
-			out << "or"; break;
-		case CONS:
-			out << "#"; break;
-	}
-	return out;
-}
 
 class AST {
 	public:
 		virtual ~AST() {}
 		virtual void printOn(std::ostream& out) const = 0;
+		virtual void sem() {}
 };
 
 inline std::ostream& operator << (std::ostream& out, const AST &t){
@@ -106,16 +28,14 @@ class Decl : public AST {
 class Stmt : public AST {
 	public:
 		Stmt() {}
-		virtual void printOn(std::ostream& out) const override {
-			out << "Stmt";
-		}
 };
 
 class Expr : public AST {
 	public:
-		virtual void printOn(std::ostream& out) const override{
-			out << "Expr";
-		}
+		Type getType() { return type; }
+
+	protected:
+		Type type;
 };
 
 class Formal : public AST {
@@ -172,10 +92,6 @@ class Header : public AST {
 };
 
 class Atom : public Expr {
-	public:
-		virtual void printOn(std::ostream& out) const override {
-			out << "Atom";
-		}
 };
 
 class FunctionDef : public Decl {
@@ -249,10 +165,6 @@ class VarDef : public Decl {
 };
 
 class Simple : public Stmt {
-	public:
-		virtual void printOn(std::ostream& out) const override {
-			out << "Simple";
-		}
 };
 
 class Skip : public Simple {
@@ -454,7 +366,10 @@ class ConstString : public Atom {
 		ConstString(std::string val) : mystring(val) {}
 
 		virtual void printOn(std::ostream& out) const override {
-			out << "ConstString(\"" << mystring << "\")";
+			out << "ConstString(\""; 
+			for (char c : mystring) 
+				printChar(out, c);
+			out << "\")";
 		}
 
 	private:
@@ -497,7 +412,9 @@ class ConstChar : public Expr {
 		ConstChar(char c) : mychar(c) {}
 
 		virtual void printOn(std::ostream& out) const override {
-			out << "ConstChar(\'" << mychar << "\')";
+			out << "ConstChar(\'";
+			printChar(out, mychar);
+			out << "\')";
 		}
 
 	private:
