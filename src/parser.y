@@ -130,6 +130,7 @@ int linecount=1;
 program:
 	func_def {
 		$1->set_main();
+		initSymbolTable(127);
 		$1->sem();
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
@@ -141,7 +142,7 @@ func_def:
 
 def_list:
 	/* nothing*/	{ $$ = new Decl_List(); }
-|	def_list def	{ $1->push_back($2); $$ = $1; } 
+|	def_list def	{ $1->push_back($2); $$ = $1; }
 ;
 
 stmt_list:

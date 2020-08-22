@@ -24,11 +24,13 @@ inline std::ostream& operator << (std::ostream& out, const AST &t){
 }
 
 class Decl : public AST {
+	public:
+		virtual void sem() override {}
+
 };
 
 class Stmt : public AST {
-	public:
-		Stmt() {}
+
 };
 
 class Expr : public AST {
@@ -57,6 +59,16 @@ class Formal : public AST {
 			}
 			out << ")";
 		}
+
+		bool getRef() {
+			return ref;
+		}
+
+		const std::vector<std::string>& getIdList() const {
+			return id_list;
+		}
+
+		virtual void sem() override {}
 
 	private:
 		bool ref;
@@ -87,10 +99,21 @@ class Header : public AST {
 		}
 
 		virtual void sem() override {
+			SymbolEntry* func = newFunction(id.c_str(), type);
+			for (Formal* f : formal_list) {
+				for (std::string id : f->getIdList()) {
+					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+					newParameter(id.c_str(), type, passmode, func);
+				}
+			}
+
 			if (is_main) {
 				if (type->kind != TYPE_VOID) fatal("Main function %s shouldn't have return type", id.c_str());
 				if (formal_list.size() != 0) fatal("Main function %s shouldn't take any arguments",  id.c_str());
 			}
+
+			printSymbolTable();
+
 		}
 
 		void set_main() {
@@ -133,7 +156,12 @@ class FunctionDef : public Decl {
 		}
 
 		virtual void sem() override {
+			openScope();
 			header->sem();
+			for (Decl *d : decl_list) {
+				d->sem();
+			}
+			closeScope();
 		}
 
 		void set_main(){
@@ -389,8 +417,8 @@ class ConstString : public Atom {
 		ConstString(std::string val) : mystring(val) {}
 
 		virtual void printOn(std::ostream& out) const override {
-			out << "ConstString(\""; 
-			for (char c : mystring) 
+			out << "ConstString(\"";
+			for (char c : mystring)
 				printChar(out, c);
 			out << "\")";
 		}
@@ -476,7 +504,7 @@ class BinOp : public Expr {
 
 class ConstBool : public Expr {
 	public:
-		ConstBool(bool b) : 
+		ConstBool(bool b) :
 			boolean(b) {}
 
 		virtual void printOn(std::ostream& out) const override {

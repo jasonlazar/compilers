@@ -1,5 +1,6 @@
 CXXFLAGS=-g -Wall
 CXX=c++
+CFLAGS=-g
 
 .PHONY: default clean distclean
 

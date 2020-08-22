@@ -71,7 +71,7 @@ struct Type_tag {
 
 /* Τύποι εγγραφών του πίνακα συμβόλων */
 
-typedef enum {            
+typedef enum {
    ENTRY_VARIABLE,                       /* Μεταβλητές                 */
    ENTRY_CONSTANT,                       /* Σταθερές                   */
    ENTRY_FUNCTION,                       /* Συναρτήσεις                */
@@ -82,7 +82,7 @@ typedef enum {
 
 /* Τύποι περάσματος παραμετρων */
 
-typedef enum {            
+typedef enum {
    PASS_BY_VALUE,                        /* Κατ' αξία                  */
    PASS_BY_REFERENCE                     /* Κατ' αναφορά               */
 } PassMode;
@@ -195,7 +195,7 @@ void          closeScope         (void);
 
 SymbolEntry * newVariable        (const char * name, Type type);
 SymbolEntry * newConstant        (const char * name, Type type, ...);
-SymbolEntry * newFunction        (const char * name);
+SymbolEntry * newFunction        (const char * name, Type type);
 SymbolEntry * newParameter       (const char * name, Type type,
                                   PassMode mode, SymbolEntry * f);
 SymbolEntry * newTemporary       (Type type);
@@ -214,7 +214,7 @@ unsigned int  sizeOfType         (Type type);
 bool          equalType          (Type type1, Type type2);
 void          printType          (Type type);
 void          printMode          (PassMode mode);
+void          printSymbolTable   ();
 
 
 #endif
-

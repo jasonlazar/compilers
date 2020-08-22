@@ -76,9 +76,9 @@ static HashType PJW_hash (const char * key)
     const HashType PJW_OVERFLOW =
         (((HashType) 0xf) << (8 * sizeof(HashType) - 4));
     const int PJW_SHIFT = (8 * (sizeof(HashType) - 1));
-    
+
     HashType h, g;
-    
+
     for (h = 0; *key != '\0'; key++) {
         h = (h << 4) + (*key);
         if ((g = h & PJW_OVERFLOW) != 0) {
@@ -115,7 +115,7 @@ void strAppendChar (char * buffer, RepChar c)
             break;
         default: {
             char s[] = { '\0', '\0' };
-            
+
             *s = c;
             strcat(buffer, s);
         }
@@ -125,7 +125,7 @@ void strAppendChar (char * buffer, RepChar c)
 void strAppendString (char * buffer, RepString str)
 {
     const char * s;
-    
+
     for (s = str; *s != '\0'; s++)
         strAppendChar(buffer, *s);
 }
@@ -138,18 +138,18 @@ void strAppendString (char * buffer, RepString str)
 void initSymbolTable (unsigned int size)
 {
     unsigned int i;
-    
+
     /* Διάφορες αρχικοποιήσεις */
-    
+
     currentScope = NULL;
     quadNext     = 1;
     tempNumber   = 1;
-    
+
     /* Αρχικοποίηση του πίνακα κατακερματισμού */
-    
+
     hashTableSize = size;
     hashTable = (SymbolEntry **) new(size * sizeof(SymbolEntry *));
-    
+
     for (i = 0; i < size; i++)
         hashTable[i] = NULL;
 }
@@ -157,9 +157,9 @@ void initSymbolTable (unsigned int size)
 void destroySymbolTable ()
 {
     unsigned int i;
-    
+
     /* Καταστροφή του πίνακα κατακερματισμού */
-    
+
     for (i = 0; i < hashTableSize; i++)
         if (hashTable[i] != NULL)
             destroyEntry(hashTable[i]);
@@ -179,7 +179,7 @@ void openScope ()
         newScope->nestingLevel = 1;
     else
         newScope->nestingLevel = currentScope->nestingLevel + 1;
-    
+
     currentScope = newScope;
 }
 
@@ -187,15 +187,15 @@ void closeScope ()
 {
     SymbolEntry * e = currentScope->entries;
     Scope       * t = currentScope;
-    
+
     while (e != NULL) {
         SymbolEntry * next = e->nextInScope;
-        
+
         hashTable[e->hashValue] = e->nextHash;
         destroyEntry(e);
         e = next;
     }
-    
+
     currentScope = currentScope->parent;
     delete(t);
 }
@@ -211,9 +211,9 @@ static void insertEntry (SymbolEntry * e)
 static SymbolEntry * newEntry (const char * name)
 {
     SymbolEntry * e;
-    
+
     /* Έλεγχος αν υπάρχει ήδη */
-    
+
     for (e = currentScope->entries; e != NULL; e = e->nextInScope)
         if (strcmp(name, e->id) == 0) {
             error("Duplicate identifier: %s", name);
@@ -235,7 +235,7 @@ static SymbolEntry * newEntry (const char * name)
 SymbolEntry * newVariable (const char * name, Type type)
 {
     SymbolEntry * e = newEntry(name);
-    
+
     if (e != NULL) {
         e->entryType = ENTRY_VARIABLE;
         e->u.eVariable.type = type;
@@ -258,7 +258,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
         RepReal    vReal;
         RepString  vString;
     } value;
-         
+
     va_start(ap, type);
     switch (type->kind) {
         case TYPE_INTEGER:
@@ -276,7 +276,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
         case TYPE_IARRAY:
             if (equalType(type->refType, typeChar)) {
                 RepString str = va_arg(ap, RepString);
-                
+
                 value.vString = (const char *) new(strlen(str) + 1);
                 strcpy((char *) (value.vString), str);
                 break;
@@ -288,7 +288,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
 
     if (name == NULL) {
         char buffer[256];
-        
+
         switch (type->kind) {
             case TYPE_INTEGER:
                 sprintf(buffer, "%d", value.vInteger);
@@ -310,13 +310,13 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
             case TYPE_IARRAY:
                 strcpy(buffer, "\"");
                 strAppendString(buffer, value.vString);
-                strcat(buffer, "\"");           
+                strcat(buffer, "\"");
         }
         e = newEntry(buffer);
     }
     else
         e = newEntry(name);
-    
+
     if (e != NULL) {
         e->entryType = ENTRY_CONSTANT;
         e->u.eConstant.type = type;
@@ -341,7 +341,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
     return e;
 }
 
-SymbolEntry * newFunction (const char * name)
+SymbolEntry * newFunction (const char * name, Type result)
 {
     SymbolEntry * e = lookupEntry(name, LOOKUP_CURRENT_SCOPE, false);
 
@@ -352,7 +352,7 @@ SymbolEntry * newFunction (const char * name)
             e->u.eFunction.isForward = false;
             e->u.eFunction.pardef = PARDEF_DEFINE;
             e->u.eFunction.firstArgument = e->u.eFunction.lastArgument = NULL;
-            e->u.eFunction.resultType = NULL;
+            e->u.eFunction.resultType = result;
         }
         return e;
     }
@@ -372,7 +372,7 @@ SymbolEntry * newParameter (const char * name, Type type,
                             PassMode mode, SymbolEntry * f)
 {
     SymbolEntry * e;
-    
+
     if (f->entryType != ENTRY_FUNCTION)
         internal("Cannot add a parameter to a non-function");
     switch (f->u.eFunction.pardef) {
@@ -391,7 +391,7 @@ SymbolEntry * newParameter (const char * name, Type type,
                 f->u.eFunction.lastArgument->u.eParameter.next = e;
                 f->u.eFunction.lastArgument = e;
             }
-            return e;            
+            return e;
         case PARDEF_CHECK:
             e = f->u.eFunction.lastArgument;
             if (e == NULL)
@@ -426,7 +426,7 @@ static unsigned int fixOffset (SymbolEntry * args)
         return 0;
     else {
         unsigned int rest = fixOffset(args->u.eParameter.next);
-        
+
         args->u.eParameter.offset = START_POSITIVE_OFFSET + rest;
         if (args->u.eParameter.mode == PASS_BY_REFERENCE)
             return rest + 2;
@@ -477,7 +477,7 @@ SymbolEntry * newTemporary (Type type)
 
     sprintf(buffer, "$%d", tempNumber);
     e = newEntry(buffer);
-    
+
     if (e != NULL) {
         e->entryType = ENTRY_TEMPORARY;
         e->u.eVariable.type = type;
@@ -492,7 +492,7 @@ SymbolEntry * newTemporary (Type type)
 void destroyEntry (SymbolEntry * e)
 {
     SymbolEntry * args;
-    
+
     switch (e->entryType) {
         case ENTRY_VARIABLE:
             destroyType(e->u.eVariable.type);
@@ -506,7 +506,7 @@ void destroyEntry (SymbolEntry * e)
             args = e->u.eFunction.firstArgument;
             while (args != NULL) {
                 SymbolEntry * p = args;
-                
+
                 destroyType(args->u.eParameter.type);
                 delete((char *) (args->id));
                 args = args->u.eParameter.next;
@@ -522,14 +522,14 @@ void destroyEntry (SymbolEntry * e)
             break;
     }
     delete((char *) (e->id));
-    delete(e);        
+    delete(e);
 }
 
 SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
 {
     unsigned int  hashValue = PJW_hash(name) % hashTableSize;
     SymbolEntry * e         = hashTable[hashValue];
-    
+
     switch (type) {
         case LOOKUP_CURRENT_SCOPE:
             while (e != NULL && e->nestingLevel == currentScope->nestingLevel)
@@ -546,7 +546,7 @@ SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
                     e = e->nextHash;
             break;
     }
-    
+
     if (err)
         error("Unknown identifier: %s", name);
     return NULL;
@@ -559,7 +559,7 @@ Type typeIArray (Type refType)
     n->kind     = TYPE_IARRAY;
     n->refType  = refType;
     n->refCount = 1;
-    
+
     refType->refCount++;
 
     return n;
@@ -572,7 +572,7 @@ Type typeList (Type refType)
     n->kind     = TYPE_LIST;
     n->refType  = refType;
     n->refCount = 1;
-    
+
     refType->refCount++;
 
     return n;
@@ -585,7 +585,7 @@ Type typePointer (Type refType)
     n->kind     = TYPE_POINTER;
     n->refType  = refType;
     n->refCount = 1;
-    
+
     refType->refCount++;
 
     return n;
@@ -636,7 +636,7 @@ bool equalType (Type type1, Type type2)
         case TYPE_POINTER:
             return equalType(type1->refType, type2->refType);
     }
-    return true;        
+    return true;
 }
 
 void printType (Type type)
@@ -645,7 +645,7 @@ void printType (Type type)
         printf("<undefined>");
         return;
     }
-    
+
     switch (type->kind) {
         case TYPE_VOID:
             printf("void");
@@ -681,4 +681,59 @@ void printMode (PassMode mode)
 {
     if (mode == PASS_BY_REFERENCE)
         printf("var ");
+}
+
+void printSymbolTable ()
+{
+    Scope       * scp;
+    SymbolEntry * e;
+    SymbolEntry * args;
+
+    scp = currentScope;
+    if (scp == NULL)
+        printf("no scope\n");
+    else
+        while (scp != NULL) {
+            printf("scope: ");
+            e = scp->entries;
+            while (e != NULL) {
+                if (e->entryType == ENTRY_TEMPORARY)
+                    printf("$%d", e->u.eTemporary.number);
+                else
+                    printf("%s", e->id);
+                switch (e->entryType) {
+                    case ENTRY_FUNCTION:
+                        printf("(");
+                        args = e->u.eFunction.firstArgument;
+                        while (args != NULL) {
+                            printMode(args->u.eParameter.mode);
+                            printf("%s : ", args->id);
+                            printType(args->u.eParameter.type);
+                            args = args->u.eParameter.next;
+                            if (args != NULL)
+                                printf("; ");
+                        }
+                        printf(") : ");
+                        printType(e->u.eFunction.resultType);
+                        break;
+#ifdef SHOW_OFFSETS
+                    case ENTRY_VARIABLE:
+                        printf("[%d]", e->u.eVariable.offset);
+                        break;
+                    case ENTRY_PARAMETER:
+                        printf("[%d]", e->u.eParameter.offset);
+                        break;
+                    case ENTRY_TEMPORARY:
+                        printf("[%d]", e->u.eTemporary.offset);
+                        break;
+#endif
+                }
+                e = e->nextInScope;
+                if (e != NULL)
+                    printf(", ");
+            }
+            scp = scp->parent;
+            printf("\n");
+        }
+    printf("----------------------------------------\n");
 }
