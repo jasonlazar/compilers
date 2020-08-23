@@ -36,7 +36,13 @@ class Stmt : public AST {
 
 class Expr : public AST {
 	public:
-		Type getType() { return type; }
+		Type getType() {
+			return type;
+		}
+
+		virtual bool isLval () {
+			return false;
+		}
 
 	protected:
 		Type type;
@@ -144,10 +150,6 @@ class Header : public AST {
 
 class Atom : public Expr {
 	public:
-		virtual bool isLval () {
-			return false;
-		}
-
 		virtual bool isString () {
 			return false;
 		}
@@ -323,6 +325,10 @@ class Call : public Simple, public Atom {
 			for (Expr* e : parameters) delete e;
 		}
 
+		void setStmt(bool b) {
+			isStmt = b;
+		}
+
 		virtual void printOn(std::ostream& out) const override {
 			out << "Call(" << name << ", Args(";
 			bool first = true;
@@ -334,9 +340,54 @@ class Call : public Simple, public Atom {
 			out << "))";
 		}
 
+		virtual void sem() override {
+			SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+			if (e->entryType != ENTRY_FUNCTION) {
+				fatal("%s is not a Function", name.c_str());
+			}
+			SymbolEntry* args = e->u.eFunction.firstArgument;
+			std::vector<Expr*>::iterator itr = parameters.begin();
+			while (args != NULL) {
+				if (itr == parameters.end())
+					fatal("%s Function needs more parameters", name.c_str());
+
+				(*itr)->sem();
+				if (!equalType((*itr)->getType(), args->u.eParameter.type)) {
+					std::stringstream expr;
+					expr << "In Function call of %s: " << *(*itr) << " is of type:" << (*itr)->getType()
+						<< " and expected type:" << args->u.eParameter.type;
+					fatal(expr.str().c_str(), name.c_str());
+				}
+
+				if (args->u.eParameter.mode == PASS_BY_REFERENCE && !(*itr)->isLval()) {
+					std::stringstream expr;
+					expr << "In Function call of %s expected L-value, got " << *(*itr) << " instead";
+					fatal(expr.str().c_str(), name.c_str());
+				}
+
+				args = args->u.eParameter.next;
+				itr++;
+			}
+
+			if (itr != parameters.end())
+				fatal("%s Function call has more parameters", name.c_str());
+
+			if (isStmt && !equalType(e->u.eFunction.resultType, typeVoid)) {
+				fatal("%s Function call is used as a statement but function is not void", name.c_str());
+			}
+			else if (!isStmt) {
+				if (equalType(e->u.eFunction.resultType, typeVoid))
+					fatal("%s Function call is used as an expression but function is void", name.c_str());
+				type = e->u.eFunction.resultType;
+			}
+
+
+		}
+
 	private:
 		std::string name;
 		std::vector<Expr*> parameters;
+		bool isStmt;
 };
 
 class Exit : public Stmt {

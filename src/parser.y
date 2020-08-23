@@ -220,7 +220,7 @@ elsif_stmt:
 simple:
 	"skip"			{ $$ = new Skip(); }
 |	atom ":=" expr	{ $$ = new Assign($1, $3); }
-|	call			{ $$ = $1; }
+|	call			{ $1->setStmt(true); $$ = $1; }
 ;
 
 simple_list:
@@ -242,7 +242,7 @@ atom:
 	T_id				{ $$ = new Id($1); }
 |	T_string			{ $$ = new ConstString(*$1); }
 |	atom "[" expr "]"	{ $$ = new ArrayItem($1, $3); }
-|	call				{ $$ = $1; }
+|	call				{ $1->setStmt(false); $$ = $1; }
 ;
 
 expr:
