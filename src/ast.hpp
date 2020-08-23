@@ -655,6 +655,55 @@ class UnOp : public Expr {
 			out << "UnOp(" << op << "(" << *expr << "))";
 		}
 
+		virtual void sem() override {
+			expr->sem();
+
+			switch (op) {
+				case UPLUS:
+				case UMINUS:
+					if (!equalType(expr->getType(), typeInteger)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression:" << *this << ", " << *expr << " is not Integer";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeInteger;
+					break;
+				case NOT:
+					if (!equalType(expr->getType(), typeBoolean)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression:" << *this << ", " << *expr << " is not Boolean";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				case IS_NIL:
+					if (!equalType(expr->getType(), typeList(typeAny))) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				/* CHECK FOR EMPTY LIST */
+				case HEAD:
+					if (!equalType(expr->getType(), typeList(typeAny))) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						fatal(expr_stream.str().c_str());
+					}
+					type = expr->getType()->refType;
+					break;
+				case TAIL:
+					if (!equalType(expr->getType(), typeList(typeAny))) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeList(expr->getType()->refType);
+					break;
+			}
+		}
+
 	private:
 		unary_ops op;
 		Expr* expr;
