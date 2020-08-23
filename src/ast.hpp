@@ -106,6 +106,7 @@ class Header : public AST {
 			SymbolEntry* func = newFunction(id.c_str());
 			if (!is_def)
 				forwardFunction(func);
+			openScope();
 			for (Formal* f : formal_list) {
 				for (std::string id : f->getIdList()) {
 					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
@@ -169,7 +170,6 @@ class FunctionDef : public Decl {
 		}
 
 		virtual void sem() override {
-			openScope();
 			header->sem();
 			for (Decl *d : decl_list) {
 				d->sem();
@@ -205,7 +205,6 @@ class FunctionDecl : public Decl {
 		}
 
 		virtual void sem() override {
-			openScope();
 			header->unset_def();
 			header->sem();
 			

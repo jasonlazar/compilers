@@ -131,7 +131,9 @@ program:
 	func_def {
 		$1->set_main();
 		initSymbolTable(127);
+		openScope();
 		$1->sem();
+		closeScope();
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
