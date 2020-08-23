@@ -9,6 +9,7 @@ extern "C"{
 
 #include "lexer.hpp"
 #include "ast.hpp"
+#include "library.hpp"
 
 int linecount=1;
 %}
@@ -132,6 +133,7 @@ program:
 		$1->set_main();
 		initSymbolTable(127);
 		openScope();
+		Library::load_library_functions();
 		$1->sem();
 		closeScope();
 //		std::cout << "AST: " << *$1 << std::endl;
