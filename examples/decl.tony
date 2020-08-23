@@ -1,6 +1,6 @@
 def main ():
   decl fu ()
-   
+
   def bool prime? (int n):
     int i
 
@@ -17,11 +17,14 @@ def main ():
   end
 
   int limit, number, counter
+  %char[] s
 
   puts("Limit: ")
   limit := geti()
   puts("Primes:\n")
   counter := 0
+  %s := "hello"
+  %s[0] := 'e'
   if limit >= 2: counter := counter + 1 puti(2) puts("\n") end
   if limit >= 3: counter := counter + 1 puti(3) puts("\n") end
   for number := 6; number <= limit; number := number + 6:

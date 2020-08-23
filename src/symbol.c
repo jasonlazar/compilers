@@ -49,7 +49,8 @@ static struct Type_tag typeConst [] = {
     { TYPE_INTEGER, NULL, 0, 0 },
     { TYPE_BOOLEAN, NULL, 0, 0 },
     { TYPE_CHAR,    NULL, 0, 0 },
-    { TYPE_REAL,    NULL, 0, 0 }
+    { TYPE_REAL,    NULL, 0, 0 },
+    { TYPE_ANY,     NULL, 0, 0 }
 };
 
 const Type typeVoid    = &(typeConst[0]);
@@ -57,6 +58,7 @@ const Type typeInteger = &(typeConst[1]);
 const Type typeBoolean = &(typeConst[2]);
 const Type typeChar    = &(typeConst[3]);
 const Type typeReal    = &(typeConst[4]);
+const Type typeAny     = &(typeConst[5]);
 
 
 /* ---------------------------------------------------------------------
@@ -216,7 +218,7 @@ static SymbolEntry * newEntry (const char * name)
 
     for (e = currentScope->entries; e != NULL; e = e->nextInScope)
         if (strcmp(name, e->id) == 0) {
-            error("Duplicate identifier: %s", name);
+            fatal("Duplicate identifier: %s", name);
             return NULL;
         }
 
@@ -363,7 +365,7 @@ SymbolEntry * newFunction (const char * name)
         return e;
     }
     else {
-       error("Duplicate identifier: %s", name);
+       fatal("Duplicate identifier: %s", name);
        return NULL;
     }
 }
@@ -399,16 +401,16 @@ SymbolEntry * newParameter (const char * name, Type type,
             else
                 e = e->u.eParameter.next;
             if (e == NULL)
-                error("More parameters than expected in redeclaration "
+                fatal("More parameters than expected in redeclaration "
                       "of function %s", f->id);
             else if (!equalType(e->u.eParameter.type, type))
-                error("Parameter type mismatch in redeclaration "
+                fatal("Parameter type mismatch in redeclaration "
                       "of function %s", f->id);
             else if (e->u.eParameter.mode != mode)
-                error("Parameter passing mode mismatch in redeclaration "
+                fatal("Parameter passing mode mismatch in redeclaration "
                       "of function %s", f->id);
             else if (strcmp(e->id, name) != 0)
-                error("Parameter name mismatch in redeclaration "
+                fatal("Parameter name mismatch in redeclaration "
                       "of function %s", f->id);
             else
                 insertEntry(e);
@@ -460,10 +462,10 @@ void endFunctionHeader (SymbolEntry * f, Type type)
                  f->u.eFunction.lastArgument->u.eParameter.next != NULL) ||
                 (f->u.eFunction.lastArgument == NULL &&
                  f->u.eFunction.firstArgument != NULL))
-                error("Fewer parameters than expected in redeclaration "
+                fatal("Fewer parameters than expected in redeclaration "
                       "of function %s", f->id);
             if (!equalType(f->u.eFunction.resultType, type))
-                error("Result type mismatch in redeclaration of function %s",
+                fatal("Result type mismatch in redeclaration of function %s",
                       f->id);
             break;
     }
@@ -548,7 +550,7 @@ SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
     }
 
     if (err)
-        error("Unknown identifier: %s", name);
+        fatal("Unknown identifier: %s", name);
     return NULL;
 }
 

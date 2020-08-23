@@ -183,6 +183,7 @@ extern const Type typeInteger;
 extern const Type typeBoolean;
 extern const Type typeChar;
 extern const Type typeReal;
+extern const Type typeAny;
 
 
 /* ---------------------------------------------------------------------

@@ -1,0 +1,6 @@
+def main ():
+  bool[] a
+  a := new bool[10]
+
+  a := true
+end

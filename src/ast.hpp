@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <sstream>
 
 #include "symbol.h"
 #include "error.h"
@@ -43,7 +44,7 @@ class Expr : public AST {
 
 class Formal : public AST {
 	public:
-		Formal(bool byreference, Type t, std::vector<std::string>& ids):
+		Formal(bool byreference, Type t, std::vector<std::string>& ids) :
 			ref(byreference), type(t), id_list(ids) {}
 
 		~Formal() {}
@@ -142,11 +143,23 @@ class Header : public AST {
 };
 
 class Atom : public Expr {
+	public:
+		virtual bool isLval () {
+			return false;
+		}
+
+		virtual bool isString () {
+			return false;
+		}
+
+		virtual bool isCharOfString () {
+			return false;
+		}
 };
 
 class FunctionDef : public Decl {
 	public:
-		FunctionDef(Header *h, std::vector<Decl*>& decl_l, std::vector<Stmt*>& stmt_l):
+		FunctionDef(Header *h, std::vector<Decl*>& decl_l, std::vector<Stmt*>& stmt_l) :
 			header(h), decl_list(decl_l), stmt_list(stmt_l), is_main(false) {}
 
 		~FunctionDef() {
@@ -173,6 +186,9 @@ class FunctionDef : public Decl {
 			header->sem();
 			for (Decl *d : decl_list) {
 				d->sem();
+			}
+			for (Stmt *s : stmt_list) {
+				s->sem();
 			}
 
 			printSymbolTable();
@@ -207,7 +223,7 @@ class FunctionDecl : public Decl {
 		virtual void sem() override {
 			header->unset_def();
 			header->sem();
-			
+
 			printSymbolTable();
 
 			closeScope();
@@ -254,6 +270,7 @@ class Skip : public Simple {
 		virtual void printOn(std::ostream& out) const override {
 			out << "Skip";
 		}
+		virtual void sem() override {}
 };
 
 class Assign : public Simple {
@@ -268,6 +285,28 @@ class Assign : public Simple {
 
 		virtual void printOn(std::ostream& out) const override {
 			out << "Assign(" << *lval << ", " << *rval << ")";
+		}
+
+		virtual void sem() override {
+			if (!lval->isLval()) {
+				std::stringstream atom;
+				atom << *lval << " is not assignable (not an L-value)";
+				fatal(atom.str().c_str());
+			}
+			lval->sem();
+			if (lval->isCharOfString()) {
+				std::stringstream atom;
+				atom << *lval << " is a char of const string and can't be assigned";
+				fatal(atom.str().c_str());
+			}
+			rval->sem();
+			if (!equalType(lval->getType(), rval->getType()))
+			{
+				std::stringstream atom;
+				atom << "In assignment " << *lval << ":=" << *rval << ":\n";
+				atom << "left is of type: " << lval->getType() << " and right is of type: " << rval->getType();
+				fatal(atom.str().c_str());
+			}
 		}
 
 	private:
@@ -439,6 +478,24 @@ class Id : public Atom {
 			out << "Id(" << id << ")";
 		}
 
+		virtual bool isLval () override {
+			return true;
+		}
+
+		virtual void sem() {
+			SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+			switch (e->entryType) {
+				case ENTRY_VARIABLE:
+					type = e->u.eVariable.type;
+					break;
+				case ENTRY_PARAMETER:
+					type = e->u.eParameter.type;
+					break;
+				default:
+					fatal("%s is not a Variable or a Parameter", id.c_str());
+				}
+			}
+
 	private:
 		std::string id;
 };
@@ -452,6 +509,14 @@ class ConstString : public Atom {
 			for (char c : mystring)
 				printChar(out, c);
 			out << "\")";
+		}
+
+		virtual void sem() {
+			type = typeIArray(typeChar);
+		}
+
+		virtual bool isString () override {
+			return true;
 		}
 
 	private:
@@ -472,6 +537,25 @@ class ArrayItem : public Atom {
 			out << "ArrayItem(" << *array << ", " << *pos << ")";
 		}
 
+		virtual bool isLval () override {
+			return true;
+		}
+
+		virtual bool isCharOfString () {
+			return array->isString();
+		}
+
+		virtual void sem() {
+			array->sem();
+			Type t = array->getType();
+			if (t->kind != TYPE_IARRAY) {
+				std::stringstream atom;
+				atom << *array << " is not an Array";
+				fatal(atom.str().c_str());
+			}
+			type = t->refType;
+		}
+
 	private:
 		Atom* array;
 		Expr* pos;
@@ -483,6 +567,10 @@ class ConstInt : public Expr {
 
 		virtual void printOn(std::ostream& out) const override {
 			out << "ConstInt(" << num << ")";
+		}
+
+		virtual void sem() {
+			type = typeInteger;
 		}
 
 	private:
@@ -497,6 +585,10 @@ class ConstChar : public Expr {
 			out << "ConstChar(\'";
 			printChar(out, mychar);
 			out << "\')";
+		}
+
+		virtual void sem() {
+			type = typeChar;
 		}
 
 	private:
@@ -543,6 +635,10 @@ class ConstBool : public Expr {
 			out << (boolean ? "true" : "false") << ")";
 		}
 
+		virtual void sem() override {
+			type = typeBoolean;
+		}
+
 	private:
 		bool boolean;
 };
@@ -550,14 +646,22 @@ class ConstBool : public Expr {
 class New : public Expr {
 	public:
 		New(Type t, Expr* e) :
-			type(t), size(e) {}
+			ref(t), size(e) {}
 
 		virtual void printOn(std::ostream& out) const override {
 			out << "New(" << type << ", " << *size << ")";
 		}
 
+		virtual void sem() {
+			type = typeIArray(ref);
+			size->sem();
+			if (!equalType(size->getType(), typeInteger)) {
+				fatal("Integer size expected for new operator");
+			}
+		}
+
 	private:
-		Type type;
+		Type ref;
 		Expr* size;
 };
 
@@ -565,6 +669,10 @@ class Nil : public Expr {
 	public:
 		virtual void printOn(std::ostream& out) const override {
 			out << "Nil";
+		}
+
+		virtual void sem() {
+			type = typeList(typeAny);
 		}
 };
 
