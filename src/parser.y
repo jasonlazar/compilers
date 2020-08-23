@@ -131,11 +131,12 @@ int linecount=1;
 program:
 	func_def {
 		$1->set_main();
-		initSymbolTable(127);
+		initSymbolTable(SYMBOL_TABLE_SIZE);
 		openScope();
 		Library::load_library_functions();
 		$1->sem();
 		closeScope();
+		destroySymbolTable();
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
