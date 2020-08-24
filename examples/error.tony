@@ -1,12 +1,12 @@
 def main ():
-  list[int] a
   bool b
-  bool res
-  int kek
-  int kik
-  list[int] c
 
-  a := 3#3
+  def int kek ():
+    return true
+  end
 
+  %b := true
+  %return 3
+  skip
 
 end

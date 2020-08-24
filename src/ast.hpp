@@ -114,6 +114,7 @@ class Header : public AST {
 			if (!is_def)
 				forwardFunction(func);
 			openScope();
+			currentScope->returnType = type;
 			for (Formal* f : formal_list) {
 				for (std::string id : f->getIdList()) {
 					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
@@ -395,6 +396,11 @@ class Exit : public Stmt {
 		virtual void printOn(std::ostream& out) const override {
 			out << "Exit";
 		}
+
+		virtual void sem() override {
+			if (!equalType(currentScope->returnType, typeVoid))
+				fatal("Exit statement in non Void Function");
+		}
 };
 
 class Return : public Stmt {
@@ -403,6 +409,15 @@ class Return : public Stmt {
 
 		virtual void printOn(std::ostream& out) const override {
 			out << "Return(" << *expr << ")";
+		}
+
+		virtual void sem() override {
+			expr->sem();
+			if (!equalType(currentScope->returnType, expr->getType())) {
+				std::stringstream expr;
+				expr << "Return statement: " << *this << " must return type " << currentScope->returnType;
+				fatal(expr.str().c_str());
+			}
 		}
 
 	private:
