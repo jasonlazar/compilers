@@ -1,6 +1,13 @@
 def main ():
 
+  int kek
+
+  def puti (int n; char c):
+    skip
+  end
+
   def bsort (int n; int[] x):
+    int kek
 
     def swap (ref int x, y):
       int t
