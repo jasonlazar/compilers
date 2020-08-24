@@ -671,7 +671,7 @@ class UnOp : public Expr {
 				case NOT:
 					if (!equalType(expr->getType(), typeBoolean)) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not Boolean";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not Boolean";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeBoolean;
@@ -679,7 +679,7 @@ class UnOp : public Expr {
 				case IS_NIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeBoolean;
@@ -687,7 +687,7 @@ class UnOp : public Expr {
 				case HEAD:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = expr->getType()->refType;
@@ -697,7 +697,7 @@ class UnOp : public Expr {
 				case TAIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeList(expr->getType()->refType);
@@ -720,6 +720,66 @@ class BinOp : public Expr {
 		virtual void printOn(std::ostream& out) const override {
 			out << "BinOp(" << op << "(";
 			out << *left << ", " << *right << "))";
+		}
+
+		virtual void sem() override {
+			left->sem();
+			right->sem();
+
+			switch(op) {
+				case PLUS:
+				case MINUS:
+				case TIMES:
+				case DIV:
+				case MOD:
+					if (!equalType(left->getType(), typeInteger)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " is not an Integer";
+						fatal(expr_stream.str().c_str());
+					}
+					if (!equalType(right->getType(), typeInteger)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not an Integer";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeInteger;
+					break;
+				case EQ:
+				case NEQ:
+				case GREATER:
+				case LESS:
+				case GEQ:
+				case LEQ:
+					if (!equalType(left->getType(), right->getType())) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				case AND:
+				case OR:
+					if (!equalType(right->getType(), typeBoolean)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not a Boolean";
+						fatal(expr_stream.str().c_str());
+					}
+					if (!equalType(left->getType(), typeBoolean)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " is not a Boolean";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				case CONS:
+					if (!equalType(right->getType(), typeList(left->getType()))) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not of type " << left->getType() << " List";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeList(left->getType());
+					break;
+				}
 		}
 
 	private:

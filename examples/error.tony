@@ -1,8 +1,12 @@
 def main ():
   list[int] a
   bool b
+  bool res
+  int kek
+  int kik
   list[int] c
 
-  c := tail(nil)
+  a := 3#3
+
 
 end
