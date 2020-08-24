@@ -3,6 +3,8 @@ def main ():
   bool b
   list[int] c
 
+  %b := head(b)
   c := tail(nil)
+
 
 end

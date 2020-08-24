@@ -687,22 +687,30 @@ class UnOp : public Expr {
 				case HEAD:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = expr->getType()->refType;
-					if (type->kind == TYPE_ANY)
-						fatal("You cannot get the head of nil");
+					if (type->kind == TYPE_ANY) {
+						std::stringstream expr_stream;
+						expr_stream << "You cannot get the head of nil, in expression: " << *this;
+						fatal(expr_stream.str().c_str());
+						// fatal("You cannot get the head of nil");
+					}
 					break;
 				case TAIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeList(expr->getType()->refType);
-					if (type->refType->kind == TYPE_ANY)
-						fatal("You cannot get the tail of nil");
+					if (type->refType->kind == TYPE_ANY) {
+						std::stringstream expr_stream;
+						expr_stream << "You cannot get the tail of nil, in expression: " << *this;
+						fatal(expr_stream.str().c_str());
+						// fatal("You cannot get the tail of nil");
+					}
 					break;
 			}
 		}
