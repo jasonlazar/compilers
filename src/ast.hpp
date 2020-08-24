@@ -16,7 +16,7 @@ class AST {
 	public:
 		virtual ~AST() {}
 		virtual void printOn(std::ostream& out) const = 0;
-		virtual void sem() {}
+		virtual void sem() = 0;
 };
 
 inline std::ostream& operator << (std::ostream& out, const AST &t){
@@ -25,8 +25,6 @@ inline std::ostream& operator << (std::ostream& out, const AST &t){
 }
 
 class Decl : public AST {
-	public:
-		virtual void sem() override {}
 
 };
 
