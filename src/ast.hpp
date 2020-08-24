@@ -445,6 +445,18 @@ class Elsif : public Stmt {
 			out << "))";
 		}
 
+		virtual void sem() override {
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Stmt* st : stmt_list)
+				st->sem();
+		}
+
 	private:
 		Expr* cond;
 		std::vector<Stmt*> stmt_list;
@@ -469,7 +481,7 @@ class If : public Stmt {
 				if (!first) out << ", ";
 				first = false;
 				out << *st;
-			};
+			}
 			out << ")";
 			for (Elsif* e : elsif_list) out << ", " << *e;
 			if (else_statements.size() > 0) {
@@ -483,6 +495,22 @@ class If : public Stmt {
 				out << ")";
 			}
 			out << ")";
+		}
+
+		virtual void sem() override {
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Stmt* st : statements)
+				st->sem();
+			for (Elsif* e : elsif_list)
+				e->sem();
+			for (Stmt *st : else_statements)
+				st->sem();
 		}
 
 	private:
@@ -527,6 +555,24 @@ class For : public Stmt {
 				out << *st;
 			}
 			out << "))";
+		}
+
+		virtual void sem() override {
+			for (Simple* s : init)
+				s->sem();
+
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Simple* s : after)
+				s->sem();
+
+			for (Stmt* st : stmt_list)
+				st->sem();
 		}
 
 	private:
