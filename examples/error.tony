@@ -3,6 +3,6 @@ def main ():
   bool b
   list[int] c
 
-  c := tail(b)
+  c := tail(nil)
 
 end

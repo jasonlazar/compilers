@@ -684,7 +684,6 @@ class UnOp : public Expr {
 					}
 					type = typeBoolean;
 					break;
-				/* CHECK FOR EMPTY LIST */
 				case HEAD:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
@@ -692,6 +691,8 @@ class UnOp : public Expr {
 						fatal(expr_stream.str().c_str());
 					}
 					type = expr->getType()->refType;
+					if (type->kind == TYPE_ANY)
+						fatal("You cannot get the head of nil");
 					break;
 				case TAIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
@@ -700,6 +701,8 @@ class UnOp : public Expr {
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeList(expr->getType()->refType);
+					if (type->refType->kind == TYPE_ANY)
+						fatal("You cannot get the tail of nil");
 					break;
 			}
 		}
