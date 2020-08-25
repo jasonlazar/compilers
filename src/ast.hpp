@@ -38,7 +38,7 @@ class Expr : public AST {
 			return type;
 		}
 
-		virtual bool isLval () {
+		virtual bool isLval() {
 			return false;
 		}
 
@@ -149,11 +149,11 @@ class Header : public AST {
 
 class Atom : public Expr {
 	public:
-		virtual bool isString () {
+		virtual bool isString() {
 			return false;
 		}
 
-		virtual bool isCharOfString () {
+		virtual bool isCharOfString() {
 			return false;
 		}
 };
@@ -588,7 +588,7 @@ class Id : public Atom {
 			out << "Id(" << id << ")";
 		}
 
-		virtual bool isLval () override {
+		virtual bool isLval() override {
 			return true;
 		}
 
@@ -621,11 +621,11 @@ class ConstString : public Atom {
 			out << "\")";
 		}
 
-		virtual void sem () override {
+		virtual void sem() override {
 			type = typeIArray(typeChar);
 		}
 
-		virtual bool isString () override {
+		virtual bool isString() override {
 			return true;
 		}
 
@@ -647,11 +647,11 @@ class ArrayItem : public Atom {
 			out << "ArrayItem(" << *array << ", " << *pos << ")";
 		}
 
-		virtual bool isLval () override {
+		virtual bool isLval() override {
 			return true;
 		}
 
-		virtual bool isCharOfString () override {
+		virtual bool isCharOfString() override {
 			return array->isString();
 		}
 
