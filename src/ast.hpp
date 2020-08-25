@@ -16,7 +16,7 @@ class AST {
 	public:
 		virtual ~AST() {}
 		virtual void printOn(std::ostream& out) const = 0;
-		virtual void sem() {}
+		virtual void sem() = 0;
 };
 
 inline std::ostream& operator << (std::ostream& out, const AST &t){
@@ -25,8 +25,6 @@ inline std::ostream& operator << (std::ostream& out, const AST &t){
 }
 
 class Decl : public AST {
-	public:
-		virtual void sem() override {}
 
 };
 
@@ -114,6 +112,7 @@ class Header : public AST {
 			if (!is_def)
 				forwardFunction(func);
 			openScope();
+			currentScope->returnType = type;
 			for (Formal* f : formal_list) {
 				for (std::string id : f->getIdList()) {
 					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
@@ -395,6 +394,11 @@ class Exit : public Stmt {
 		virtual void printOn(std::ostream& out) const override {
 			out << "Exit";
 		}
+
+		virtual void sem() override {
+			if (!equalType(currentScope->returnType, typeVoid))
+				fatal("Exit statement in non Void Function");
+		}
 };
 
 class Return : public Stmt {
@@ -403,6 +407,15 @@ class Return : public Stmt {
 
 		virtual void printOn(std::ostream& out) const override {
 			out << "Return(" << *expr << ")";
+		}
+
+		virtual void sem() override {
+			expr->sem();
+			if (!equalType(currentScope->returnType, expr->getType())) {
+				std::stringstream expr;
+				expr << "Return statement: " << *this << " must return type " << currentScope->returnType;
+				fatal(expr.str().c_str());
+			}
 		}
 
 	private:
@@ -430,6 +443,18 @@ class Elsif : public Stmt {
 			out << "))";
 		}
 
+		virtual void sem() override {
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Stmt* st : stmt_list)
+				st->sem();
+		}
+
 	private:
 		Expr* cond;
 		std::vector<Stmt*> stmt_list;
@@ -454,7 +479,7 @@ class If : public Stmt {
 				if (!first) out << ", ";
 				first = false;
 				out << *st;
-			};
+			}
 			out << ")";
 			for (Elsif* e : elsif_list) out << ", " << *e;
 			if (else_statements.size() > 0) {
@@ -468,6 +493,22 @@ class If : public Stmt {
 				out << ")";
 			}
 			out << ")";
+		}
+
+		virtual void sem() override {
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Stmt* st : statements)
+				st->sem();
+			for (Elsif* e : elsif_list)
+				e->sem();
+			for (Stmt *st : else_statements)
+				st->sem();
 		}
 
 	private:
@@ -512,6 +553,24 @@ class For : public Stmt {
 				out << *st;
 			}
 			out << "))";
+		}
+
+		virtual void sem() override {
+			for (Simple* s : init)
+				s->sem();
+
+			cond->sem();
+			if (!equalType(cond->getType(), typeBoolean)) {
+				std::stringstream expr;
+				expr << "In statement: " << *this << ", condition: " << *cond
+					<< " must be Boolean";
+				fatal(expr.str().c_str());
+			}
+			for (Simple* s : after)
+				s->sem();
+
+			for (Stmt* st : stmt_list)
+				st->sem();
 		}
 
 	private:
@@ -671,7 +730,7 @@ class UnOp : public Expr {
 				case NOT:
 					if (!equalType(expr->getType(), typeBoolean)) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not Boolean";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not Boolean";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeBoolean;
@@ -679,7 +738,7 @@ class UnOp : public Expr {
 				case IS_NIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
 						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not List";
+						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeBoolean;
@@ -728,6 +787,66 @@ class BinOp : public Expr {
 		virtual void printOn(std::ostream& out) const override {
 			out << "BinOp(" << op << "(";
 			out << *left << ", " << *right << "))";
+		}
+
+		virtual void sem() override {
+			left->sem();
+			right->sem();
+
+			switch(op) {
+				case PLUS:
+				case MINUS:
+				case TIMES:
+				case DIV:
+				case MOD:
+					if (!equalType(left->getType(), typeInteger)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " is not an Integer";
+						fatal(expr_stream.str().c_str());
+					}
+					if (!equalType(right->getType(), typeInteger)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not an Integer";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeInteger;
+					break;
+				case EQ:
+				case NEQ:
+				case GREATER:
+				case LESS:
+				case GEQ:
+				case LEQ:
+					if (!equalType(left->getType(), right->getType())) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				case AND:
+				case OR:
+					if (!equalType(right->getType(), typeBoolean)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not a Boolean";
+						fatal(expr_stream.str().c_str());
+					}
+					if (!equalType(left->getType(), typeBoolean)) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *left << " is not a Boolean";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeBoolean;
+					break;
+				case CONS:
+					if (!equalType(right->getType(), typeList(left->getType()))) {
+						std::stringstream expr_stream;
+						expr_stream << "In expression: " << *this << ", " << *right << " is not of type " << left->getType() << " List";
+						fatal(expr_stream.str().c_str());
+					}
+					type = typeList(left->getType());
+					break;
+				}
 		}
 
 	private:
