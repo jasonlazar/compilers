@@ -592,7 +592,7 @@ class Id : public Atom {
 			return true;
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 			switch (e->entryType) {
 				case ENTRY_VARIABLE:
@@ -621,7 +621,7 @@ class ConstString : public Atom {
 			out << "\")";
 		}
 
-		virtual void sem() {
+		virtual void sem () override {
 			type = typeIArray(typeChar);
 		}
 
@@ -651,11 +651,11 @@ class ArrayItem : public Atom {
 			return true;
 		}
 
-		virtual bool isCharOfString () {
+		virtual bool isCharOfString () override {
 			return array->isString();
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			array->sem();
 			Type t = array->getType();
 			if (t->kind != TYPE_IARRAY) {
@@ -679,7 +679,7 @@ class ConstInt : public Expr {
 			out << "ConstInt(" << num << ")";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeInteger;
 		}
 
@@ -697,7 +697,7 @@ class ConstChar : public Expr {
 			out << "\')";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeChar;
 		}
 
@@ -874,7 +874,7 @@ class New : public Expr {
 			out << "New(" << type << ", " << *size << ")";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeIArray(ref);
 			size->sem();
 			if (!equalType(size->getType(), typeInteger)) {
@@ -893,7 +893,7 @@ class Nil : public Expr {
 			out << "Nil";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeList(typeAny);
 		}
 };
