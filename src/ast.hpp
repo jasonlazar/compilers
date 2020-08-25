@@ -11,12 +11,72 @@
 
 #include "printers.hpp"
 
+#include <llvm/IR/Value.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Verifier.h>
+
+// using namespace llvm;
 
 class AST {
 	public:
 		virtual ~AST() {}
 		virtual void printOn(std::ostream& out) const = 0;
 		virtual void sem() = 0;
+		virtual llvm::Value* compile() const {
+			return nullptr;
+		};
+
+		void llvm_compile_and_dump() {
+			// Initialize
+			// Make the module, which holds all the code
+			TheModule = make_unique<llvm::Module>("Tony program", TheContext);
+
+			// Initialize types
+			i8 = llvm::IntegerType::get(TheContext, 8);
+			i32 = llvm::IntegerType::get(TheContext, 32);
+			i64 = llvm::IntegerType::get(TheContext, 64);
+
+			// Initialize global variables
+
+			// Initialize library functions
+
+			// Define and start the main function.
+
+			// Emit the program code.
+			//compile();
+			Builder.CreateRet(c32(0));
+
+			// Verify the IR.
+			bool bad = llvm::verifyModule(*TheModule, &llvm::errs());
+			if (bad) {
+				std::cerr << "The IR is bad!" << std::endl;
+				TheModule->print(llvm::errs(), nullptr);
+				std::exit(1);
+			}
+
+			// Print out the IR.
+			TheModule->print(llvm::outs(), nullptr);
+
+		}
+
+	protected:
+		static llvm::LLVMContext TheContext;
+		static llvm::IRBuilder<> Builder;
+		static std::unique_ptr<llvm::Module> TheModule;
+
+		static llvm::Type *i8;
+		static llvm::Type *i32;
+		static llvm::Type *i64;
+
+
+		static llvm::ConstantInt* c8(char c) {
+			// for new line
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(8, c, true));
+		}
+		static llvm::ConstantInt* c32(int n) {
+			// for integers
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(32, n, true));
+		}
 };
 
 inline std::ostream& operator << (std::ostream& out, const AST &t){
@@ -38,7 +98,7 @@ class Expr : public AST {
 			return type;
 		}
 
-		virtual bool isLval () {
+		virtual bool isLval() {
 			return false;
 		}
 
@@ -149,11 +209,11 @@ class Header : public AST {
 
 class Atom : public Expr {
 	public:
-		virtual bool isString () {
+		virtual bool isString() {
 			return false;
 		}
 
-		virtual bool isCharOfString () {
+		virtual bool isCharOfString() {
 			return false;
 		}
 };
@@ -588,11 +648,11 @@ class Id : public Atom {
 			out << "Id(" << id << ")";
 		}
 
-		virtual bool isLval () override {
+		virtual bool isLval() override {
 			return true;
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 			switch (e->entryType) {
 				case ENTRY_VARIABLE:
@@ -621,11 +681,11 @@ class ConstString : public Atom {
 			out << "\")";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeIArray(typeChar);
 		}
 
-		virtual bool isString () override {
+		virtual bool isString() override {
 			return true;
 		}
 
@@ -647,15 +707,15 @@ class ArrayItem : public Atom {
 			out << "ArrayItem(" << *array << ", " << *pos << ")";
 		}
 
-		virtual bool isLval () override {
+		virtual bool isLval() override {
 			return true;
 		}
 
-		virtual bool isCharOfString () {
+		virtual bool isCharOfString() override {
 			return array->isString();
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			array->sem();
 			Type t = array->getType();
 			if (t->kind != TYPE_IARRAY) {
@@ -679,8 +739,12 @@ class ConstInt : public Expr {
 			out << "ConstInt(" << num << ")";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeInteger;
+		}
+
+		virtual llvm::Value* compile() const override {
+			return c32(num);
 		}
 
 	private:
@@ -697,7 +761,7 @@ class ConstChar : public Expr {
 			out << "\')";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeChar;
 		}
 
@@ -874,7 +938,7 @@ class New : public Expr {
 			out << "New(" << type << ", " << *size << ")";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeIArray(ref);
 			size->sem();
 			if (!equalType(size->getType(), typeInteger)) {
@@ -893,7 +957,7 @@ class Nil : public Expr {
 			out << "Nil";
 		}
 
-		virtual void sem() {
+		virtual void sem() override {
 			type = typeList(typeAny);
 		}
 };

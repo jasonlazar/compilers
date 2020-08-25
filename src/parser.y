@@ -135,6 +135,7 @@ program:
 		openScope();
 		Library::load_library_functions();
 		$1->sem();
+		$1->llvm_compile_and_dump();
 		closeScope();
 		destroySymbolTable();
 //		std::cout << "AST: " << *$1 << std::endl;
