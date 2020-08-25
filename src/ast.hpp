@@ -750,12 +750,8 @@ class UnOp : public Expr {
 						fatal(expr_stream.str().c_str());
 					}
 					type = expr->getType()->refType;
-					if (type->kind == TYPE_ANY) {
-						std::stringstream expr_stream;
-						expr_stream << "You cannot get the head of nil, in expression: " << *this;
-						fatal(expr_stream.str().c_str());
-						// fatal("You cannot get the head of nil");
-					}
+					if (type->kind == TYPE_ANY)
+						fatal("You cannot get the head of nil");
 					break;
 				case TAIL:
 					if (!equalType(expr->getType(), typeList(typeAny))) {
@@ -764,12 +760,8 @@ class UnOp : public Expr {
 						fatal(expr_stream.str().c_str());
 					}
 					type = typeList(expr->getType()->refType);
-					if (type->refType->kind == TYPE_ANY) {
-						std::stringstream expr_stream;
-						expr_stream << "You cannot get the tail of nil, in expression: " << *this;
-						fatal(expr_stream.str().c_str());
-						// fatal("You cannot get the tail of nil");
-					}
+					if (type->refType->kind == TYPE_ANY)
+						fatal("You cannot get the tail of nil");
 					break;
 			}
 		}
