@@ -138,18 +138,24 @@ class AST {
 				llvm::Function::Create(strcat_type, llvm::Function::ExternalLinkage, "strcat", TheModule.get());
 
 			// Define and start the main function.
+			llvm::FunctionType* main_type = llvm::FunctionType::get(i32, {}, false);
+			llvm::Function *main =
+				llvm::Function::Create(main_type, llvm::Function::ExternalLinkage, "_main", TheModule.get());
+			llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", main);
+			Builder.SetInsertPoint(BB);
 
 			// Emit the program code.
 			compile();
 			Builder.CreateRet(c32(0));
 
 			// Verify the IR.
-			bool bad = llvm::verifyModule(*TheModule, &llvm::errs());
+			/*bool bad = llvm::verifyModule(*TheModule, &llvm::errs());
 			if (bad) {
 				std::cerr << "The IR is bad!" << std::endl;
 				TheModule->print(llvm::errs(), nullptr);
 				std::exit(1);
 			}
+			*/
 
 			// Print out the IR.
 			TheModule->print(llvm::outs(), nullptr);
@@ -416,6 +422,7 @@ class FunctionDef : public Decl {
 				s->compile();
 			}
 
+			Builder.CreateRetVoid();
 			return TheFunction;
 		}
 
@@ -1142,7 +1149,7 @@ class ConstBool : public Expr {
 		}
 
 		virtual llvm::Value* compile() const override {
-			return c1(boolean);
+			return c8(boolean);
 		}
 
 	private:

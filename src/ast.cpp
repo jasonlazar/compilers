@@ -30,6 +30,12 @@ llvm::Type* translate(Type t) {
 	switch(t->kind){
 		case TYPE_INTEGER:
 			return llvm::Type::getInt16Ty(AST::TheContext);
+		case TYPE_CHAR:
+			return llvm::Type::getInt8Ty(AST::TheContext);
+		case TYPE_BOOLEAN:
+			return llvm::Type::getInt8Ty(AST::TheContext);
+		case TYPE_VOID:
+			return llvm::Type::getVoidTy(AST::TheContext);
 		default:
 			return nullptr;
 	}
