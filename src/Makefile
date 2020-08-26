@@ -1,8 +1,8 @@
-CXXFLAGS=-g -Wall `$(LLVMCONFIG) --cxxflags`
+CXXFLAGS=-g -Wall -std=c++11 `$(LLVMCONFIG) --cxxflags`
 LLVMCONFIG=llvm-config-9
 LDFLAGS=`$(LLVMCONFIG) --ldflags --system-libs --libs all`
-# CXX=c++
-CXX=clang++-9
+CXX=c++
+# CXX=clang++-9
 CFLAGS=-g
 
 .PHONY: default clean distclean

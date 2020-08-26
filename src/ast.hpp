@@ -29,7 +29,7 @@ class AST {
 		void llvm_compile_and_dump() {
 			// Initialize
 			// Make the module, which holds all the code
-			TheModule = make_unique<llvm::Module>("Tony program", TheContext);
+			TheModule = llvm::make_unique<llvm::Module>("Tony program", TheContext);
 
 			// Initialize types
 			i8 = llvm::IntegerType::get(TheContext, 8);
