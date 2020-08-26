@@ -17,6 +17,8 @@
 
 // using namespace llvm;
 
+llvm::Type* translate(Type t);
+
 class AST {
 	public:
 		virtual ~AST() {}
@@ -59,8 +61,9 @@ class AST {
 
 		}
 
-	protected:
 		static llvm::LLVMContext TheContext;
+
+	protected:
 		static llvm::IRBuilder<> Builder;
 		static std::unique_ptr<llvm::Module> TheModule;
 
@@ -191,6 +194,32 @@ class Header : public AST {
 
 		}
 
+		virtual llvm::Value* compile() const override {
+			llvm::Function *TheFunction = TheModule->getFunction(id);
+
+			if (!TheFunction) {
+				std::vector<llvm::Type*> types;
+				for (Formal* f : formal_list) {
+					size_t formal_size = f->getIdList().size();
+					for (size_t i=0; i<formal_size; ++i)
+						types.push_back(translate(f->getType()));
+					/*	for (std::string id : f->getIdList()) {
+						PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+						newParameter(id.c_str(), f->getType(), passmode, func);
+						}
+					 */
+				}
+				llvm::FunctionType* FT = llvm::FunctionType::get(translate(type), types, false);
+				TheFunction = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, id, TheModule.get());
+
+				// Set names for all arguments
+			}
+
+			llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", TheFunction);
+			Builder.SetInsertPoint(BB);
+			return TheFunction;
+		}
+
 		void set_main() {
 			is_main = true;
 		}
@@ -255,6 +284,22 @@ class FunctionDef : public Decl {
 			printSymbolTable();
 
 			closeScope();
+		}
+
+		virtual llvm::Value* compile() const override {
+			llvm::Value* TheFunction = header->compile();
+
+			if (!TheFunction)
+				return nullptr;
+
+			for (Decl* d : decl_list) {
+				d->compile();
+			}
+			for (Stmt* s : stmt_list) {
+				s->compile();
+			}
+
+			return TheFunction;
 		}
 
 		void set_main(){
@@ -663,8 +708,8 @@ class Id : public Atom {
 					break;
 				default:
 					fatal("%s is not a Variable or a Parameter", id.c_str());
-				}
 			}
+		}
 
 	private:
 		std::string id;
@@ -902,7 +947,7 @@ class BinOp : public Expr {
 					}
 					type = typeList(left->getType());
 					break;
-				}
+			}
 		}
 
 	private:
