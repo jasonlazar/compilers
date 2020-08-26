@@ -34,6 +34,7 @@ class AST {
 			TheModule = llvm::make_unique<llvm::Module>("Tony program", TheContext);
 
 			// Initialize types
+			i1 = llvm::IntegerType::get(TheContext, 1);
 			i8 = llvm::IntegerType::get(TheContext, 8);
 			i32 = llvm::IntegerType::get(TheContext, 32);
 			i64 = llvm::IntegerType::get(TheContext, 64);
@@ -67,17 +68,19 @@ class AST {
 		static llvm::IRBuilder<> Builder;
 		static std::unique_ptr<llvm::Module> TheModule;
 
+		static llvm::Type *i1;
 		static llvm::Type *i8;
 		static llvm::Type *i32;
 		static llvm::Type *i64;
 
 
+		static llvm::ConstantInt* c1(bool b) {
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(1, b, true));
+		}
 		static llvm::ConstantInt* c8(char c) {
-			// for new line
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(8, c, true));
 		}
 		static llvm::ConstantInt* c32(int n) {
-			// for integers
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(32, n, true));
 		}
 };
@@ -810,6 +813,10 @@ class ConstChar : public Expr {
 			type = typeChar;
 		}
 
+		virtual llvm::Value* compile() const override {
+			return c8(mychar);
+		}
+
 	private:
 		char mychar;
 };
@@ -872,6 +879,20 @@ class UnOp : public Expr {
 					if (type->refType->kind == TYPE_ANY)
 						fatal("You cannot get the tail of nil");
 					break;
+			}
+		}
+
+		virtual llvm::Value* compile() const override {
+			llvm::Value* V = expr->compile();
+			switch(op) {
+				case UPLUS:
+					return V;
+				case UMINUS:
+					return Builder.CreateNeg(V, "uminustmp");
+				case NOT:
+					return Builder.CreateNot(V, "nottmp");
+				default:
+					return nullptr;
 			}
 		}
 
@@ -950,6 +971,42 @@ class BinOp : public Expr {
 			}
 		}
 
+		virtual llvm::Value* compile() const override {
+			llvm::Value* l = left->compile();
+			llvm::Value* r = right->compile();
+
+			switch(op) {
+				case PLUS:
+					return Builder.CreateAdd(l, r, "addtmp");
+				case MINUS: 
+					return Builder.CreateSub(l, r, "subtmp");
+				case TIMES: 
+					return Builder.CreateMul(l, r, "multmp");
+				case DIV: 
+					return Builder.CreateSDiv(l, r, "divtmp");
+				case MOD: 
+					return Builder.CreateSRem(l, r, "modtmp");
+				case EQ: 
+					return Builder.CreateICmpEQ(l, r, "eqtmp");
+				case NEQ: 
+					return Builder.CreateICmpNE(l, r, "neqtmp");
+				case GREATER: 
+					return Builder.CreateICmpSGT(l, r, "gttmp");
+				case LESS: 
+					return Builder.CreateICmpSLT(l, r, "lttmp");
+				case GEQ: 
+					return Builder.CreateICmpSGE(l, r, "geqtmp");
+				case LEQ: 
+					return Builder.CreateICmpSLE(l, r, "leqtmp");
+				case AND: 
+					return Builder.CreateAnd(l, r, "andtmp");
+				case OR: 
+					return Builder.CreateOr(l, r, "ortmp");
+				default:
+					return nullptr;
+			}
+		}
+
 	private:
 		Expr* left;
 		binary_ops op;
@@ -968,6 +1025,10 @@ class ConstBool : public Expr {
 
 		virtual void sem() override {
 			type = typeBoolean;
+		}
+
+		virtual llvm::Value* compile() const override {
+			return c1(boolean);
 		}
 
 	private:
