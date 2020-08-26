@@ -11,12 +11,72 @@
 
 #include "printers.hpp"
 
+#include <llvm/IR/Value.h>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Verifier.h>
+
+// using namespace llvm;
 
 class AST {
 	public:
 		virtual ~AST() {}
 		virtual void printOn(std::ostream& out) const = 0;
 		virtual void sem() = 0;
+		virtual llvm::Value* compile() const {
+			return nullptr;
+		};
+
+		void llvm_compile_and_dump() {
+			// Initialize
+			// Make the module, which holds all the code
+			TheModule = llvm::make_unique<llvm::Module>("Tony program", TheContext);
+
+			// Initialize types
+			i8 = llvm::IntegerType::get(TheContext, 8);
+			i32 = llvm::IntegerType::get(TheContext, 32);
+			i64 = llvm::IntegerType::get(TheContext, 64);
+
+			// Initialize global variables
+
+			// Initialize library functions
+
+			// Define and start the main function.
+
+			// Emit the program code.
+			//compile();
+			Builder.CreateRet(c32(0));
+
+			// Verify the IR.
+			bool bad = llvm::verifyModule(*TheModule, &llvm::errs());
+			if (bad) {
+				std::cerr << "The IR is bad!" << std::endl;
+				TheModule->print(llvm::errs(), nullptr);
+				std::exit(1);
+			}
+
+			// Print out the IR.
+			TheModule->print(llvm::outs(), nullptr);
+
+		}
+
+	protected:
+		static llvm::LLVMContext TheContext;
+		static llvm::IRBuilder<> Builder;
+		static std::unique_ptr<llvm::Module> TheModule;
+
+		static llvm::Type *i8;
+		static llvm::Type *i32;
+		static llvm::Type *i64;
+
+
+		static llvm::ConstantInt* c8(char c) {
+			// for new line
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(8, c, true));
+		}
+		static llvm::ConstantInt* c32(int n) {
+			// for integers
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(32, n, true));
+		}
 };
 
 inline std::ostream& operator << (std::ostream& out, const AST &t){
@@ -681,6 +741,10 @@ class ConstInt : public Expr {
 
 		virtual void sem() override {
 			type = typeInteger;
+		}
+
+		virtual llvm::Value* compile() const override {
+			return c32(num);
 		}
 
 	private:
