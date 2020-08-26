@@ -36,17 +36,111 @@ class AST {
 			// Initialize types
 			i1 = llvm::IntegerType::get(TheContext, 1);
 			i8 = llvm::IntegerType::get(TheContext, 8);
+			i32 = llvm::IntegerType::get(TheContext, 16);
 			i32 = llvm::IntegerType::get(TheContext, 32);
 			i64 = llvm::IntegerType::get(TheContext, 64);
 
 			// Initialize global variables
 
 			// Initialize library functions
+			// stdio functions
+			// puti
+			llvm::FunctionType* puti_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i16}, false);
+			ThePuti =
+				llvm::Function::Create(puti_type, llvm::Function::ExternalLinkage, "puti", TheModule.get());
+
+			// putb
+			llvm::FunctionType* putb_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i8}, false);
+			ThePutb =
+				llvm::Function::Create(putb_type, llvm::Function::ExternalLinkage, "putb", TheModule.get());
+
+			// putc
+			llvm::FunctionType* putc_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i8}, false);
+			ThePutc =
+				llvm::Function::Create(putc_type, llvm::Function::ExternalLinkage, "putc", TheModule.get());
+
+			// puts
+			llvm::FunctionType* puts_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::get(i8, 0)}, false);
+			ThePuts =
+				llvm::Function::Create(puts_type, llvm::Function::ExternalLinkage, "puts", TheModule.get());
+
+			// geti
+			llvm::FunctionType* geti_type =
+				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {}, false);
+			TheGeti =
+				llvm::Function::Create(geti_type, llvm::Function::ExternalLinkage, "geti", TheModule.get());
+
+			// getb
+			llvm::FunctionType* getb_type =
+				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {}, false);
+			TheGetb =
+				llvm::Function::Create(getb_type, llvm::Function::ExternalLinkage, "getb", TheModule.get());
+
+			// getc
+			llvm::FunctionType* getc_type =
+				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {}, false);
+			TheGetc =
+				llvm::Function::Create(getc_type, llvm::Function::ExternalLinkage, "getc", TheModule.get());
+
+			// gets
+			llvm::FunctionType* gets_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i16, llvm::PointerType::get(i8, 0)}, false);
+			TheGets =
+				llvm::Function::Create(gets_type, llvm::Function::ExternalLinkage, "gets", TheModule.get());
+
+			// math functions
+			// abs
+			llvm::FunctionType* abs_type =
+				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {i16}, false);
+			TheAbs =
+				llvm::Function::Create(abs_type, llvm::Function::ExternalLinkage, "abs", TheModule.get());
+
+			// stdlib functions
+			// ord
+			llvm::FunctionType* ord_type =
+				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {i8}, false);
+			TheOrd =
+				llvm::Function::Create(ord_type, llvm::Function::ExternalLinkage, "ord", TheModule.get());
+
+			// chr
+			llvm::FunctionType* chr_type =
+				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {i16}, false);
+			TheChr =
+				llvm::Function::Create(chr_type, llvm::Function::ExternalLinkage, "chr", TheModule.get());
+
+			// string functions
+			// strlen
+			llvm::FunctionType* strlen_type =
+				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {llvm::PointerType::getUnqual(i8)}, false);
+			TheStrlen =
+				llvm::Function::Create(strlen_type, llvm::Function::ExternalLinkage, "strlen", TheModule.get());
+
+			// strcmp
+			llvm::FunctionType* strcmp_type =
+				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
+			TheStrcmp =
+				llvm::Function::Create(strcmp_type, llvm::Function::ExternalLinkage, "strcmp", TheModule.get());
+
+			// strcpy
+			llvm::FunctionType* strcpy_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
+			TheStrcpy =
+				llvm::Function::Create(strcpy_type, llvm::Function::ExternalLinkage, "strcpy", TheModule.get());
+
+			// strcat
+			llvm::FunctionType* strcat_type =
+				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
+			TheStrcat =
+				llvm::Function::Create(strcat_type, llvm::Function::ExternalLinkage, "strcat", TheModule.get());
 
 			// Define and start the main function.
 
 			// Emit the program code.
-			//compile();
+			compile();
 			Builder.CreateRet(c32(0));
 
 			// Verify the IR.
@@ -68,8 +162,25 @@ class AST {
 		static llvm::IRBuilder<> Builder;
 		static std::unique_ptr<llvm::Module> TheModule;
 
+		static llvm::Function *ThePuti;
+		static llvm::Function *ThePutb;
+		static llvm::Function *ThePutc;
+		static llvm::Function *ThePuts;
+		static llvm::Function *TheGeti;
+		static llvm::Function *TheGetb;
+		static llvm::Function *TheGetc;
+		static llvm::Function *TheGets;
+		static llvm::Function *TheAbs;
+		static llvm::Function *TheOrd;
+		static llvm::Function *TheChr;
+		static llvm::Function *TheStrlen;
+		static llvm::Function *TheStrcmp;
+		static llvm::Function *TheStrcpy;
+		static llvm::Function *TheStrcat;
+
 		static llvm::Type *i1;
 		static llvm::Type *i8;
+		static llvm::Type *i16;
 		static llvm::Type *i32;
 		static llvm::Type *i64;
 
@@ -79,6 +190,9 @@ class AST {
 		}
 		static llvm::ConstantInt* c8(char c) {
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(8, c, true));
+		}
+		static llvm::ConstantInt* c16(int n) {
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(16, n, true));
 		}
 		static llvm::ConstantInt* c32(int n) {
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(32, n, true));
@@ -284,7 +398,7 @@ class FunctionDef : public Decl {
 				s->sem();
 			}
 
-			printSymbolTable();
+	//		printSymbolTable();
 
 			closeScope();
 		}
@@ -792,7 +906,7 @@ class ConstInt : public Expr {
 		}
 
 		virtual llvm::Value* compile() const override {
-			return c32(num);
+			return c16(num);
 		}
 
 	private:
