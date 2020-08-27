@@ -349,6 +349,12 @@ Value* ConstBool::compile() const {
 	return c8(boolean);
 }
 
+Value* Assign::compile() const {
+	Value* l = lval->compile();
+	Value* r = rval->compile();
+	return Builder.CreateStore(loadValue(r), l);
+}
+
 Value* Call::compile() const {
 	Function *CalleeF = TheModule->getFunction(name);
 	// Look up the name in the global module table

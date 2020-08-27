@@ -381,6 +381,8 @@ class Assign : public Simple {
 			}
 		}
 
+		virtual llvm::Value* compile() const override;
+
 	private:
 		Atom* lval;
 		Expr* rval;
