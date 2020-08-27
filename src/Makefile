@@ -23,7 +23,7 @@ tony: lexer.o parser.o printers.o library.o symbol.o general.o error.o ast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 clean:
-	$(RM) lexer.cpp parser.cpp parser.hpp parser.output *.o
+	$(RM) lexer.cpp parser.cpp parser.hpp parser.output *.o *.out *.ll *.s
 
 distclean: clean
 	$(RM) tony
