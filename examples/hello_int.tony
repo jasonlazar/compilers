@@ -1,3 +1,10 @@
 def hello ():
+  def foo(char x, c; int d):
+  	int b
+
+	skip
+  end
+  int n
+
   puti(17)
 end
