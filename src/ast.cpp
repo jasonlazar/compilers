@@ -212,12 +212,13 @@ Function* FunctionDef::compile() const {
 	if (!TheFunction)
 		return nullptr;
 
-	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
-	Builder.SetInsertPoint(BB);
-
 	for (Decl* d : decl_list) {
 		d->compile();
 	}
+
+	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
+	Builder.SetInsertPoint(BB);
+
 	for (Stmt* s : stmt_list) {
 		s->compile();
 	}

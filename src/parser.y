@@ -281,6 +281,6 @@ expr:
 
 int main() {
 	int result = yyparse();
- 	if (result == 0) std::cout << "Success.\n";
+// 	if (result == 0) std::cout << "Success.\n";
 	return result;
 }
