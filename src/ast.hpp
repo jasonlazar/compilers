@@ -35,7 +35,7 @@ class AST {
 			return nullptr;
 		};
 
-		void llvm_compile_and_dump(); 
+		void llvm_compile_and_dump();
 
 		static llvm::Type* translate(Type t);
 
@@ -193,7 +193,7 @@ class Header : public AST {
 
 		}
 
-		virtual llvm::Function* compile() const override; 
+		virtual llvm::Function* compile() const override;
 
 		void set_main() {
 			is_main = true;
@@ -261,7 +261,7 @@ class FunctionDef : public Decl {
 			closeScope();
 		}
 
-		virtual llvm::Function* compile() const override; 
+		virtual llvm::Function* compile() const override;
 
 		void set_main(){
 			is_main = true;
@@ -749,7 +749,7 @@ class ConstInt : public Expr {
 			type = typeInteger;
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		int num;
@@ -769,7 +769,7 @@ class ConstChar : public Expr {
 			type = typeChar;
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		char mychar;
@@ -836,7 +836,7 @@ class UnOp : public Expr {
 			}
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		unary_ops op;
@@ -913,7 +913,7 @@ class BinOp : public Expr {
 			}
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		Expr* left;
@@ -935,7 +935,7 @@ class ConstBool : public Expr {
 			type = typeBoolean;
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		bool boolean;

@@ -258,29 +258,29 @@ Value* BinOp::compile() const {
 	switch(op) {
 		case PLUS:
 			return Builder.CreateAdd(l, r, "addtmp");
-		case MINUS: 
+		case MINUS:
 			return Builder.CreateSub(l, r, "subtmp");
-		case TIMES: 
+		case TIMES:
 			return Builder.CreateMul(l, r, "multmp");
-		case DIV: 
+		case DIV:
 			return Builder.CreateSDiv(l, r, "divtmp");
-		case MOD: 
+		case MOD:
 			return Builder.CreateSRem(l, r, "modtmp");
-		case EQ: 
+		case EQ:
 			return Builder.CreateICmpEQ(l, r, "eqtmp");
-		case NEQ: 
+		case NEQ:
 			return Builder.CreateICmpNE(l, r, "neqtmp");
-		case GREATER: 
+		case GREATER:
 			return Builder.CreateICmpSGT(l, r, "gttmp");
-		case LESS: 
+		case LESS:
 			return Builder.CreateICmpSLT(l, r, "lttmp");
-		case GEQ: 
+		case GEQ:
 			return Builder.CreateICmpSGE(l, r, "geqtmp");
-		case LEQ: 
+		case LEQ:
 			return Builder.CreateICmpSLE(l, r, "leqtmp");
-		case AND: 
+		case AND:
 			return Builder.CreateAnd(l, r, "andtmp");
-		case OR: 
+		case OR:
 			return Builder.CreateOr(l, r, "ortmp");
 		default:
 			return nullptr;
