@@ -6,8 +6,16 @@
 #include <string>
 #include <sstream>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "symbol.h"
 #include "error.h"
+
+#ifdef __cplusplus
+}
+#endif
 
 #include "printers.hpp"
 
@@ -17,7 +25,6 @@
 
 // using namespace llvm;
 
-llvm::Type* translate(Type t);
 
 class AST {
 	public:
@@ -28,143 +35,12 @@ class AST {
 			return nullptr;
 		};
 
-		void llvm_compile_and_dump() {
-			// Initialize
-			// Make the module, which holds all the code
-			TheModule = llvm::make_unique<llvm::Module>("Tony program", TheContext);
+		void llvm_compile_and_dump(); 
 
-			// Initialize types
-			i1 = llvm::IntegerType::get(TheContext, 1);
-			i8 = llvm::IntegerType::get(TheContext, 8);
-			i32 = llvm::IntegerType::get(TheContext, 16);
-			i32 = llvm::IntegerType::get(TheContext, 32);
-			i64 = llvm::IntegerType::get(TheContext, 64);
-
-			// Initialize global variables
-
-			// Initialize library functions
-			// stdio functions
-			// puti
-			llvm::FunctionType* puti_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i16}, false);
-			ThePuti =
-				llvm::Function::Create(puti_type, llvm::Function::ExternalLinkage, "puti", TheModule.get());
-
-			// putb
-			llvm::FunctionType* putb_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i8}, false);
-			ThePutb =
-				llvm::Function::Create(putb_type, llvm::Function::ExternalLinkage, "putb", TheModule.get());
-
-			// putc
-			llvm::FunctionType* putc_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i8}, false);
-			ThePutc =
-				llvm::Function::Create(putc_type, llvm::Function::ExternalLinkage, "putc", TheModule.get());
-
-			// puts
-			llvm::FunctionType* puts_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::get(i8, 0)}, false);
-			ThePuts =
-				llvm::Function::Create(puts_type, llvm::Function::ExternalLinkage, "puts", TheModule.get());
-
-			// geti
-			llvm::FunctionType* geti_type =
-				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {}, false);
-			TheGeti =
-				llvm::Function::Create(geti_type, llvm::Function::ExternalLinkage, "geti", TheModule.get());
-
-			// getb
-			llvm::FunctionType* getb_type =
-				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {}, false);
-			TheGetb =
-				llvm::Function::Create(getb_type, llvm::Function::ExternalLinkage, "getb", TheModule.get());
-
-			// getc
-			llvm::FunctionType* getc_type =
-				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {}, false);
-			TheGetc =
-				llvm::Function::Create(getc_type, llvm::Function::ExternalLinkage, "getc", TheModule.get());
-
-			// gets
-			llvm::FunctionType* gets_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {i16, llvm::PointerType::get(i8, 0)}, false);
-			TheGets =
-				llvm::Function::Create(gets_type, llvm::Function::ExternalLinkage, "gets", TheModule.get());
-
-			// math functions
-			// abs
-			llvm::FunctionType* abs_type =
-				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {i16}, false);
-			TheAbs =
-				llvm::Function::Create(abs_type, llvm::Function::ExternalLinkage, "abs", TheModule.get());
-
-			// stdlib functions
-			// ord
-			llvm::FunctionType* ord_type =
-				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {i8}, false);
-			TheOrd =
-				llvm::Function::Create(ord_type, llvm::Function::ExternalLinkage, "ord", TheModule.get());
-
-			// chr
-			llvm::FunctionType* chr_type =
-				llvm::FunctionType::get(llvm::Type::getInt8Ty(TheContext), {i16}, false);
-			TheChr =
-				llvm::Function::Create(chr_type, llvm::Function::ExternalLinkage, "chr", TheModule.get());
-
-			// string functions
-			// strlen
-			llvm::FunctionType* strlen_type =
-				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {llvm::PointerType::getUnqual(i8)}, false);
-			TheStrlen =
-				llvm::Function::Create(strlen_type, llvm::Function::ExternalLinkage, "strlen", TheModule.get());
-
-			// strcmp
-			llvm::FunctionType* strcmp_type =
-				llvm::FunctionType::get(llvm::Type::getInt16Ty(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
-			TheStrcmp =
-				llvm::Function::Create(strcmp_type, llvm::Function::ExternalLinkage, "strcmp", TheModule.get());
-
-			// strcpy
-			llvm::FunctionType* strcpy_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
-			TheStrcpy =
-				llvm::Function::Create(strcpy_type, llvm::Function::ExternalLinkage, "strcpy", TheModule.get());
-
-			// strcat
-			llvm::FunctionType* strcat_type =
-				llvm::FunctionType::get(llvm::Type::getVoidTy(TheContext), {llvm::PointerType::getUnqual(i8), llvm::PointerType::getUnqual(i8)}, false);
-			TheStrcat =
-				llvm::Function::Create(strcat_type, llvm::Function::ExternalLinkage, "strcat", TheModule.get());
-
-			// Define and start the main function.
-			llvm::FunctionType* main_type = llvm::FunctionType::get(i32, {}, false);
-			llvm::Function *main =
-				llvm::Function::Create(main_type, llvm::Function::ExternalLinkage, "_main", TheModule.get());
-			llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", main);
-			Builder.SetInsertPoint(BB);
-
-			// Emit the program code.
-			compile();
-			Builder.CreateRet(c32(0));
-
-			// Verify the IR.
-			/*bool bad = llvm::verifyModule(*TheModule, &llvm::errs());
-			if (bad) {
-				std::cerr << "The IR is bad!" << std::endl;
-				TheModule->print(llvm::errs(), nullptr);
-				std::exit(1);
-			}
-			*/
-
-			// Print out the IR.
-			TheModule->print(llvm::outs(), nullptr);
-
-		}
-
-		static llvm::LLVMContext TheContext;
+		static llvm::Type* translate(Type t);
 
 	protected:
+		static llvm::LLVMContext TheContext;
 		static llvm::IRBuilder<> Builder;
 		static std::unique_ptr<llvm::Module> TheModule;
 
@@ -317,31 +193,7 @@ class Header : public AST {
 
 		}
 
-		virtual llvm::Value* compile() const override {
-			llvm::Function *TheFunction = TheModule->getFunction(id);
-
-			if (!TheFunction) {
-				std::vector<llvm::Type*> types;
-				for (Formal* f : formal_list) {
-					size_t formal_size = f->getIdList().size();
-					for (size_t i=0; i<formal_size; ++i)
-						types.push_back(translate(f->getType()));
-					/*	for (std::string id : f->getIdList()) {
-						PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-						newParameter(id.c_str(), f->getType(), passmode, func);
-						}
-					 */
-				}
-				llvm::FunctionType* FT = llvm::FunctionType::get(translate(type), types, false);
-				TheFunction = llvm::Function::Create(FT, llvm::Function::ExternalLinkage, id, TheModule.get());
-
-				// Set names for all arguments
-			}
-
-			llvm::BasicBlock *BB = llvm::BasicBlock::Create(TheContext, "entry", TheFunction);
-			Builder.SetInsertPoint(BB);
-			return TheFunction;
-		}
+		virtual llvm::Function* compile() const override; 
 
 		void set_main() {
 			is_main = true;
@@ -409,22 +261,7 @@ class FunctionDef : public Decl {
 			closeScope();
 		}
 
-		virtual llvm::Value* compile() const override {
-			llvm::Value* TheFunction = header->compile();
-
-			if (!TheFunction)
-				return nullptr;
-
-			for (Decl* d : decl_list) {
-				d->compile();
-			}
-			for (Stmt* s : stmt_list) {
-				s->compile();
-			}
-
-			Builder.CreateRetVoid();
-			return TheFunction;
-		}
+		virtual llvm::Function* compile() const override; 
 
 		void set_main(){
 			is_main = true;
@@ -912,9 +749,7 @@ class ConstInt : public Expr {
 			type = typeInteger;
 		}
 
-		virtual llvm::Value* compile() const override {
-			return c16(num);
-		}
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		int num;
@@ -934,9 +769,7 @@ class ConstChar : public Expr {
 			type = typeChar;
 		}
 
-		virtual llvm::Value* compile() const override {
-			return c8(mychar);
-		}
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		char mychar;
@@ -1003,19 +836,7 @@ class UnOp : public Expr {
 			}
 		}
 
-		virtual llvm::Value* compile() const override {
-			llvm::Value* V = expr->compile();
-			switch(op) {
-				case UPLUS:
-					return V;
-				case UMINUS:
-					return Builder.CreateNeg(V, "uminustmp");
-				case NOT:
-					return Builder.CreateNot(V, "nottmp");
-				default:
-					return nullptr;
-			}
-		}
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		unary_ops op;
@@ -1092,41 +913,7 @@ class BinOp : public Expr {
 			}
 		}
 
-		virtual llvm::Value* compile() const override {
-			llvm::Value* l = left->compile();
-			llvm::Value* r = right->compile();
-
-			switch(op) {
-				case PLUS:
-					return Builder.CreateAdd(l, r, "addtmp");
-				case MINUS: 
-					return Builder.CreateSub(l, r, "subtmp");
-				case TIMES: 
-					return Builder.CreateMul(l, r, "multmp");
-				case DIV: 
-					return Builder.CreateSDiv(l, r, "divtmp");
-				case MOD: 
-					return Builder.CreateSRem(l, r, "modtmp");
-				case EQ: 
-					return Builder.CreateICmpEQ(l, r, "eqtmp");
-				case NEQ: 
-					return Builder.CreateICmpNE(l, r, "neqtmp");
-				case GREATER: 
-					return Builder.CreateICmpSGT(l, r, "gttmp");
-				case LESS: 
-					return Builder.CreateICmpSLT(l, r, "lttmp");
-				case GEQ: 
-					return Builder.CreateICmpSGE(l, r, "geqtmp");
-				case LEQ: 
-					return Builder.CreateICmpSLE(l, r, "leqtmp");
-				case AND: 
-					return Builder.CreateAnd(l, r, "andtmp");
-				case OR: 
-					return Builder.CreateOr(l, r, "ortmp");
-				default:
-					return nullptr;
-			}
-		}
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		Expr* left;
@@ -1148,9 +935,7 @@ class ConstBool : public Expr {
 			type = typeBoolean;
 		}
 
-		virtual llvm::Value* compile() const override {
-			return c8(boolean);
-		}
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		bool boolean;
