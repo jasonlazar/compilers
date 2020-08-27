@@ -291,10 +291,12 @@ class FunctionDecl : public Decl {
 			header->unset_def();
 			header->sem();
 
-			printSymbolTable();
+			// printSymbolTable();
 
 			closeScope();
 		}
+
+		virtual llvm::Function* compile() const override;
 
 	private:
 		Header* header;

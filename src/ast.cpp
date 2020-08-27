@@ -157,18 +157,16 @@ void AST::llvm_compile_and_dump() {
 	TheStrcat =
 		Function::Create(strcat_type, Function::ExternalLinkage, "strcat", TheModule.get());
 
-	// Define and start the main function.
-		/*
-	FunctionType* main_type = FunctionType::get(i32, {}, false);
-	Function *main =
-		Function::Create(main_type, Function::ExternalLinkage, "_main", TheModule.get());
-	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", main);
-	Builder.SetInsertPoint(BB);
-	*/
 
 	// Emit the program code.
-	compile();
-	// Builder.CreateRet(c32(0));
+	Value* main_func = compile();
+	if (main_func->getName() != "main") {
+		auto fun = TheModule->getFunction("main");
+		main_func = TheModule->getFunction(main_func->getName());
+		if (fun != NULL)
+			fun->setName("_main");
+		main_func->setName("main");
+	}
 
 	// Verify the IR.
 	bool bad = llvm::verifyModule(*TheModule, &errs());
@@ -198,8 +196,7 @@ Function* Header::compile() const {
 				}
 			 */
 		}
-    // FunctionType* FT = FunctionType::get(translate(type), types, false);
-		FunctionType* FT = FunctionType::get(llvm::Type::getInt32Ty(TheContext), types, false);
+		FunctionType* FT = FunctionType::get(translate(type), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
 
 		// Set names for all arguments
@@ -224,10 +221,18 @@ Function* FunctionDef::compile() const {
 		s->compile();
 	}
 
-	// Builder.CreateRetVoid();
-  Builder.CreateRet(c32(0));
+	Builder.CreateRetVoid();
 
 	verifyFunction(*TheFunction, &errs());
+	return TheFunction;
+}
+
+Function* FunctionDecl::compile() const {
+	Function* TheFunction = header->compile();
+
+	if (!TheFunction)
+		return nullptr;
+
 	return TheFunction;
 }
 
@@ -295,26 +300,21 @@ Value* ConstBool::compile() const {
 }
 
 Value* Call::compile() const {
-  Function *CalleeF = TheModule->getFunction(name);
-  // Look up the name in the global module table
-  if (!CalleeF) {
-    std::cout << "Unkown function referenced" << std::endl;
-    return nullptr;
-  }
+	Function *CalleeF = TheModule->getFunction(name);
+	// Look up the name in the global module table
+	if (!CalleeF) {
+		std::cout << "Unkown function referenced" << std::endl;
+		return nullptr;
+	}
 
-  // Iterate for each parameter
-  std::vector<llvm::Value*> ArgsV;
-  // for (Expr* e : parameters) {
-  //   ArgsV.push_back(e->compile());
-  //   if (!ArgsV.back())
-  //     return nullptr;
-  // }
-  for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-    ArgsV.push_back(parameters[i]->compile());
-    if (!ArgsV.back())
-      return nullptr;
-  }
+	// Iterate for each parameter
+	std::vector<llvm::Value*> ArgsV;
+	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
+		ArgsV.push_back(parameters[i]->compile());
+		if (!ArgsV.back())
+			return nullptr;
+	}
 
-  // return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
-  return Builder.CreateCall(CalleeF, ArgsV);
+	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+	return Builder.CreateCall(CalleeF, ArgsV);
 }
