@@ -1,3 +1,8 @@
 def hello ():
-  puti(17)
+  def printInteger(int a):
+    puti(a)
+  end
+
+  printInteger(17)
+  putc('\n')
 end
