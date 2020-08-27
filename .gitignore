@@ -8,3 +8,5 @@ tony
 *.ll
 *.s
 *.out
+*.dot
+*.png
