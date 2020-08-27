@@ -1,0 +1,3 @@
+def hello ():
+  puti(17)
+end

@@ -449,6 +449,8 @@ class Call : public Simple, public Atom {
 
 		}
 
+		virtual llvm::Value* compile() const override;
+
 	private:
 		std::string name;
 		std::vector<Expr*> parameters;

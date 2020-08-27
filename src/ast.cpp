@@ -168,7 +168,7 @@ void AST::llvm_compile_and_dump() {
 
 	// Emit the program code.
 	compile();
-	//Builder.CreateRet(c32(0));
+	// Builder.CreateRet(c32(0));
 
 	// Verify the IR.
 	bool bad = llvm::verifyModule(*TheModule, &errs());
@@ -198,7 +198,8 @@ Function* Header::compile() const {
 				}
 			 */
 		}
-		FunctionType* FT = FunctionType::get(translate(type), types, false);
+    // FunctionType* FT = FunctionType::get(translate(type), types, false);
+		FunctionType* FT = FunctionType::get(llvm::Type::getInt32Ty(TheContext), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
 
 		// Set names for all arguments
@@ -223,8 +224,10 @@ Function* FunctionDef::compile() const {
 		s->compile();
 	}
 
-	Builder.CreateRetVoid();
-	verifyFunction(*TheFunction, &outs());
+	// Builder.CreateRetVoid();
+  Builder.CreateRet(c32(0));
+
+	verifyFunction(*TheFunction, &errs());
 	return TheFunction;
 }
 
@@ -289,4 +292,29 @@ Value* BinOp::compile() const {
 
 Value* ConstBool::compile() const {
 	return c8(boolean);
+}
+
+Value* Call::compile() const {
+  Function *CalleeF = TheModule->getFunction(name);
+  // Look up the name in the global module table
+  if (!CalleeF) {
+    std::cout << "Unkown function referenced" << std::endl;
+    return nullptr;
+  }
+
+  // Iterate for each parameter
+  std::vector<llvm::Value*> ArgsV;
+  // for (Expr* e : parameters) {
+  //   ArgsV.push_back(e->compile());
+  //   if (!ArgsV.back())
+  //     return nullptr;
+  // }
+  for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
+    ArgsV.push_back(parameters[i]->compile());
+    if (!ArgsV.back())
+      return nullptr;
+  }
+
+  // return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+  return Builder.CreateCall(CalleeF, ArgsV);
 }
