@@ -101,6 +101,7 @@ struct SymbolEntry_tag {
    unsigned int   hashValue;          /* Τιμή κατακερματισμού          */
    SymbolEntry  * nextHash;           /* Επόμενη εγγραφή στον Π.Κ.     */
    SymbolEntry  * nextInScope;        /* Επόμενη εγγραφή στην εμβέλεια */
+   void         * alloca;
 
    union {                            /* Ανάλογα με τον τύπο εγγραφής: */
 

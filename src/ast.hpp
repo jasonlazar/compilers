@@ -326,6 +326,8 @@ class VarDef : public Decl {
 			}
 		}
 
+		virtual llvm::Value* compile() const override;
+
 	private:
 		Type type;
 		std::vector<std::string> id_list;

@@ -135,6 +135,8 @@ program:
 		openScope();
 		Library::load_library_functions();
 		$1->sem();
+		closeScope();
+		openScope();
 		$1->llvm_compile_and_dump();
 		closeScope();
 		destroySymbolTable();

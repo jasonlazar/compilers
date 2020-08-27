@@ -9,6 +9,7 @@ using llvm::Module;
 using llvm::IntegerType;
 using llvm::PointerType;
 using llvm::BasicBlock;
+using llvm::AllocaInst;
 using llvm::outs;
 using llvm::errs;
 
@@ -182,6 +183,20 @@ void AST::llvm_compile_and_dump() {
 }
 
 Function* Header::compile() const {
+	SymbolEntry* func = newFunction(id.c_str());
+	if (!is_def)
+		forwardFunction(func);
+	openScope();
+	currentScope->returnType = type;
+	for (Formal* f : formal_list) {
+		for (std::string id : f->getIdList()) {
+			PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+			newParameter(id.c_str(), f->getType(), passmode, func);
+		}
+	}
+
+	endFunctionHeader(func, type);
+
 	Function *TheFunction = TheModule->getFunction(id);
 
 	if (!TheFunction) {
@@ -190,16 +205,18 @@ Function* Header::compile() const {
 			size_t formal_size = f->getIdList().size();
 			for (size_t i=0; i<formal_size; ++i)
 				types.push_back(translate(f->getType()));
-			/*	for (std::string id : f->getIdList()) {
-				PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-				newParameter(id.c_str(), f->getType(), passmode, func);
-				}
-			 */
 		}
 		FunctionType* FT = FunctionType::get(translate(type), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
 
 		// Set names for all arguments
+		auto it = TheFunction->arg_begin();
+		for (Formal* f : formal_list) {
+			for (std::string id : f->getIdList()) {
+				it->setName(id);
+				++it;
+			}
+		}
 	}
 	return TheFunction;
 }
@@ -210,11 +227,26 @@ Function* FunctionDef::compile() const {
 	if (!TheFunction)
 		return nullptr;
 
+	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
+	Builder.SetInsertPoint(BB);
+
+	for (auto &Arg : TheFunction->args()) {
+		// Create an alloca for this variable.
+		AllocaInst *Alloca = Builder.CreateAlloca(Arg.getType(), nullptr, Arg.getName());
+
+		// Store the initial value into the alloca.
+		Builder.CreateStore(&Arg, Alloca);
+
+		// Add arguments to variable symbol table.
+		SymbolEntry *se = lookupEntry(Arg.getName().str().c_str(), LOOKUP_ALL_SCOPES, true);
+		se->alloca = Alloca;
+	}
+
 	for (Decl* d : decl_list) {
+		Builder.SetInsertPoint(BB);
 		d->compile();
 	}
 
-	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
 	Builder.SetInsertPoint(BB);
 
 	for (Stmt* s : stmt_list) {
@@ -223,6 +255,7 @@ Function* FunctionDef::compile() const {
 
 	Builder.CreateRetVoid();
 
+	closeScope();
 	verifyFunction(*TheFunction, &errs());
 	return TheFunction;
 }
@@ -230,10 +263,20 @@ Function* FunctionDef::compile() const {
 Function* FunctionDecl::compile() const {
 	Function* TheFunction = header->compile();
 
+	closeScope();
 	if (!TheFunction)
 		return nullptr;
 
 	return TheFunction;
+}
+
+Value* VarDef::compile() const {
+	for (std::string id : id_list) {
+		SymbolEntry* se = newVariable(id.c_str(), type);
+		AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, id);
+		se->alloca = (void *) alloc;
+	}
+	return nullptr;
 }
 
 Value* ConstInt::compile() const {
