@@ -14,7 +14,6 @@ using llvm::outs;
 using llvm::errs;
 
 LLVMContext AST::TheContext;
-using llvm::outs;
 IRBuilder<> AST::Builder(TheContext);
 std::unique_ptr<Module> AST::TheModule;
 
@@ -53,6 +52,14 @@ llvm::Type* AST::translate(Type t) {
 		default:
 			return nullptr;
 	}
+}
+
+Value *AST::loadValue(Value *p)
+{
+	if (PointerType::classof(p->getType()))
+		return Builder.CreateLoad(p, "var");
+	else
+		return p;
 }
 
 void AST::llvm_compile_and_dump() {
@@ -353,11 +360,17 @@ Value* Call::compile() const {
 	// Iterate for each parameter
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		ArgsV.push_back(parameters[i]->compile());
+		ArgsV.push_back(loadValue(parameters[i]->compile()));
 		if (!ArgsV.back())
 			return nullptr;
 	}
 
 	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
 	return Builder.CreateCall(CalleeF, ArgsV);
+}
+
+Value* Id::compile() const {
+	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+
+	return (Value *) e->alloca;
 }

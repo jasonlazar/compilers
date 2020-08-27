@@ -38,6 +38,7 @@ class AST {
 		void llvm_compile_and_dump();
 
 		static llvm::Type* translate(Type t);
+		static llvm::Value* loadValue(llvm::Value* p);
 
 	protected:
 		static llvm::LLVMContext TheContext;
@@ -677,6 +678,8 @@ class Id : public Atom {
 					fatal("%s is not a Variable or a Parameter", id.c_str());
 			}
 		}
+
+		virtual llvm::Value* compile() const override; 
 
 	private:
 		std::string id;
