@@ -320,6 +320,8 @@ Value* BinOp::compile() const {
 	l = loadValue(l);
 	r = loadValue(r);
 
+	Value* V;
+
 	switch(op) {
 		case PLUS:
 			return Builder.CreateAdd(l, r, "addtmp");
@@ -332,17 +334,23 @@ Value* BinOp::compile() const {
 		case MOD:
 			return Builder.CreateSRem(l, r, "modtmp");
 		case EQ:
-			return Builder.CreateICmpEQ(l, r, "eqtmp");
+			V = Builder.CreateICmpEQ(l, r, "eqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case NEQ:
-			return Builder.CreateICmpNE(l, r, "neqtmp");
+			V = Builder.CreateICmpNE(l, r, "neqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case GREATER:
-			return Builder.CreateICmpSGT(l, r, "gttmp");
+			V = Builder.CreateICmpSGT(l, r, "gttmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case LESS:
-			return Builder.CreateICmpSLT(l, r, "lttmp");
+			V = Builder.CreateICmpSLT(l, r, "lttmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case GEQ:
-			return Builder.CreateICmpSGE(l, r, "geqtmp");
+			V = Builder.CreateICmpSGE(l, r, "geqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case LEQ:
-			return Builder.CreateICmpSLE(l, r, "leqtmp");
+			V = Builder.CreateICmpSLE(l, r, "leqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case AND:
 			return Builder.CreateAnd(l, r, "andtmp");
 		case OR:
