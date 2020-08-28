@@ -208,6 +208,14 @@ class Header : public AST {
 			is_def = false;
 		}
 
+		std::string getName() {
+			return id;
+		}
+
+		Type getType() {
+			return type;
+		}
+
 	private:
 		Type type;
 		std::string id;

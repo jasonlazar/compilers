@@ -268,9 +268,31 @@ Function* FunctionDef::compile() const {
 
 	for (Stmt* s : stmt_list) {
 		s->compile();
+    // Needs checking for one return statement in a block
 	}
 
-	Builder.CreateRetVoid();
+  if (!Builder.GetInsertBlock()->getTerminator()) {
+    switch(header->getType()->kind){
+  		case TYPE_INTEGER:
+        // Builder.CreateRet(c16(0));
+        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        break;
+  		case TYPE_CHAR:
+        // Builder.CreateRet(c8(0));
+        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        break;
+  		case TYPE_BOOLEAN:
+        // Builder.CreateRet(c8(0));
+        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        break;
+  		case TYPE_VOID:
+        Builder.CreateRetVoid();
+        break;
+  		default:
+        // Builder.CreateRet(llvm::ConstantPointerNull);
+        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+  	}
+  }
 
 	closeScope();
 	verifyFunction(*TheFunction, &errs());
@@ -302,19 +324,23 @@ Value* Skip::compile() const {
 
 
 Value* Assign::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
 	Value* l = lval->compile();
 	Value* r = rval->compile();
-	if (rval->isString()) Builder.CreateStore(r, l);
+	if (rval->isString())
+    Builder.CreateStore(r, l);
 	return Builder.CreateStore(loadValue(r), l);
 }
 
 Value* Call::compile() const {
+  if(isStmt) {
+    if(Builder.GetInsertBlock()->getTerminator())
+      return nullptr;
+  }
+
 	Function *CalleeF = TheModule->getFunction(name);
-	// Look up the name in the global module table
-	if (!CalleeF) {
-		std::cout << "Unkown function referenced" << std::endl;
-		return nullptr;
-	}
 
 	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
 	SymbolEntry* args = e->u.eFunction.firstArgument;
@@ -337,6 +363,11 @@ Value* Call::compile() const {
 }
 
 Value* Return::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  Value* ret = loadValue(expr->compile());
+  return Builder.CreateRet(ret);;
 }
 
 Value* Id::compile() const {
