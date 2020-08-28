@@ -18,10 +18,9 @@ def hello ():
 
   int n, i
   n := geti()
-  
+
   for i:=0; i<=n; i:=i+1:
-    puti(i)
-    putc('\n')
+    end
   end
 
 end

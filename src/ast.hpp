@@ -544,6 +544,12 @@ class Elsif : public Stmt {
 				st->sem();
 		}
 
+		virtual llvm::Value* compile() const override;
+
+		Expr* getCond() {
+			return cond;
+		}
+
 	private:
 		Expr* cond;
 		std::vector<Stmt*> stmt_list;
@@ -599,6 +605,8 @@ class If : public Stmt {
 			for (Stmt *st : else_statements)
 				st->sem();
 		}
+
+		virtual llvm::Value* compile() const override;
 
 	private:
 		Expr* cond;

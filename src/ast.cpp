@@ -274,23 +274,23 @@ Function* FunctionDef::compile() const {
   if (!Builder.GetInsertBlock()->getTerminator()) {
     switch(header->getType()->kind){
   		case TYPE_INTEGER:
-        // Builder.CreateRet(c16(0));
-        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        Builder.CreateRet(c16(0));
+        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
         break;
   		case TYPE_CHAR:
-        // Builder.CreateRet(c8(0));
-        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        Builder.CreateRet(c8(0));
+        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
         break;
   		case TYPE_BOOLEAN:
-        // Builder.CreateRet(c8(0));
-        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        Builder.CreateRet(c8(0));
+        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
         break;
   		case TYPE_VOID:
         Builder.CreateRetVoid();
         break;
   		default:
-        // Builder.CreateRet(llvm::ConstantPointerNull);
-        fatal("In function %s, control reaches end of non-void function", header->getName().c_str());
+        Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
+        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
   	}
   }
 
@@ -375,6 +375,71 @@ Value* Exit::compile() const {
     return nullptr;
 
   return Builder.CreateRetVoid();
+}
+
+Value* Elsif::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  for (Stmt* st : stmt_list)
+    st->compile();
+
+  return nullptr;
+}
+
+Value* If::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  Value *condition = loadValue(cond->compile());
+  Value *if_cond = Builder.CreateICmpNE(condition, c8(0), "if_cond");
+
+  Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+  BasicBlock *ThenBB =
+    BasicBlock::Create(TheContext, "then", TheFunction);
+  BasicBlock *ElseBB =
+    BasicBlock::Create(TheContext, "else", TheFunction);
+  BasicBlock *AfterBB =
+    BasicBlock::Create(TheContext, "endif", TheFunction);
+
+    Builder.CreateCondBr(if_cond, ThenBB, ElseBB);
+    Builder.SetInsertPoint(ThenBB);
+
+    for (Stmt* st : statements)
+      st->compile();
+
+    if(!Builder.GetInsertBlock()->getTerminator())
+      Builder.CreateBr(AfterBB);
+    Builder.SetInsertPoint(ElseBB);
+
+    for (Elsif* e : elsif_list) {
+      Expr* exp = e->getCond();
+      Value* condition = loadValue(exp->compile());
+      Value *elsif_cond = Builder.CreateICmpNE(condition, c8(0), "elsif_cond");
+      BasicBlock *ElsifThenBB =
+        BasicBlock::Create(TheContext, "elsif_then", TheFunction);
+      BasicBlock *NextElsifBB =
+        BasicBlock::Create(TheContext, "next_elsif", TheFunction);
+
+      Builder.CreateCondBr(elsif_cond, ElsifThenBB, NextElsifBB);
+      Builder.SetInsertPoint(ElsifThenBB);
+
+      e->compile();
+
+      if(!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(AfterBB);
+      Builder.SetInsertPoint(NextElsifBB);
+    }
+
+    for (Stmt *st : else_statements)
+      st->compile();
+
+    if(!Builder.GetInsertBlock()->getTerminator())
+      Builder.CreateBr(AfterBB);
+    Builder.SetInsertPoint(AfterBB);
+
+    return nullptr;
 }
 
 Value* For::compile() const {
