@@ -897,6 +897,10 @@ class BinOp : public Expr {
 						expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
 						fatal(expr_stream.str().c_str());
 					}
+					if (equalType(left->getType(), typeIArray(typeAny)))
+						fatal("You cannot compare arrays");
+					else if (equalType(left->getType(), typeList(typeAny)))
+						fatal("You cannot compare lists");
 					type = typeBoolean;
 					break;
 				case AND:
