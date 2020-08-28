@@ -1,30 +1,25 @@
 def hello ():
- <*
   def printInteger(int a):
     puti(a)
   end
-  
-  def foo(ref int a):
-	int b
-    b := a + 8
 
-	puti(b)
-	putc('\n')
+  def int foo(ref int a):
+    int b
+    b := a + 8
+    return b
+    b := 3
+    return b
   end
 
-  int x
+  def bool bar(bool b):
+    b := not b
+  end
 
-  x := geti()
-  foo(x)
-  printInteger(x)
-  putc('\n')
-  *>
-  bool b, bb
-  int a, aa
+  int n, i
+  n := geti()
 
-  a := geti()
-  aa := geti()
-  b := a <> aa
-  bb := a >= aa
-  putb(b and bb)
+  for i:=0; i<=n; i:=i+1:
+    skip
+  end
+
 end
