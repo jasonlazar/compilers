@@ -11,7 +11,14 @@ def hello ():
     return b
   end
 
+  def bar(bool b):
+    putb(b)
+    b := not b
+    putb(b)
+  end
+
   int x
+  bar(false)
   x := geti()
   printInteger(foo(x))
   putc('\n')

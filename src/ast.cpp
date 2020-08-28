@@ -367,7 +367,14 @@ Value* Return::compile() const {
     return nullptr;
 
   Value* ret = loadValue(expr->compile());
-  return Builder.CreateRet(ret);;
+  return Builder.CreateRet(ret);
+}
+
+Value* Exit::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  return Builder.CreateRetVoid();
 }
 
 Value* Id::compile() const {

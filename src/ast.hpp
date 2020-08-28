@@ -484,6 +484,8 @@ class Exit : public Stmt {
 			if (!equalType(currentScope->returnType, typeVoid))
 				fatal("Exit statement in non Void Function");
 		}
+
+		virtual llvm::Value* compile() const override;
 };
 
 class Return : public Stmt {
