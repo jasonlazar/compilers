@@ -414,13 +414,15 @@ Value* ConstBool::compile() const {
 
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
+  V = loadValue(V);
 	switch(op) {
 		case UPLUS:
 			return V;
 		case UMINUS:
 			return Builder.CreateNeg(V, "uminustmp");
 		case NOT:
-			return Builder.CreateNot(V, "nottmp");
+      V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
+      return Builder.CreateZExt(V, i8, "nottmp");
 		default:
 			return nullptr;
 	}

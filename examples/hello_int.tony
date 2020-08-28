@@ -11,16 +11,19 @@ def hello ():
     return b
   end
 
-  def bar(bool b):
-    putb(b)
+  def bool bar(bool b):
     b := not b
-    putb(b)
+    return b
   end
 
+  putb(bar(true))
+  putb(bar(false))
+
+  <*
   int x
-  bar(false)
   x := geti()
   printInteger(foo(x))
   putc('\n')
+  *>
 
 end
