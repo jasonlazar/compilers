@@ -8,8 +8,14 @@ using llvm::IRBuilder;
 using llvm::Module;
 using llvm::IntegerType;
 using llvm::PointerType;
+using llvm::ArrayType;
+using llvm::Constant;
+using llvm::GlobalVariable;
+using llvm::GlobalValue;
+using llvm::ConstantArray;
 using llvm::BasicBlock;
 using llvm::AllocaInst;
+using llvm::GetElementPtrInst;
 using llvm::outs;
 using llvm::errs;
 
@@ -367,6 +373,7 @@ Value* ConstBool::compile() const {
 Value* Assign::compile() const {
 	Value* l = lval->compile();
 	Value* r = rval->compile();
+	if (rval->isString()) Builder.CreateStore(r, l);
 	return Builder.CreateStore(loadValue(r), l);
 }
 
@@ -383,10 +390,12 @@ Value* Call::compile() const {
 	// Iterate for each parameter
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		if (args->u.eParameter.mode == PASS_BY_VALUE)
-			ArgsV.push_back(loadValue(parameters[i]->compile()));
-		else
+		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
 			ArgsV.push_back(parameters[i]->compile());
+		else if (parameters[i]->isString())
+			ArgsV.push_back(parameters[i]->compile());
+		else
+			ArgsV.push_back(loadValue(parameters[i]->compile()));
 		args = args->u.eParameter.next;
 		if (!ArgsV.back())
 			return nullptr;
@@ -403,4 +412,18 @@ Value* Id::compile() const {
 		return loadValue((AllocaInst*) e->alloca);
 
 	return (AllocaInst *) e->alloca;
+}
+
+Value* ConstString::compile() const {
+	std::vector<Constant*> values;
+	for (char c : mystring)
+		values.push_back(c8(c));
+	values.push_back(c8('\0'));
+
+	ArrayType* string_type = ArrayType::get(i8, values.size());
+	GlobalVariable* TheString =
+		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
+				ConstantArray::get(string_type, values), "string_constant");
+
+	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }

@@ -105,6 +105,10 @@ class Expr : public AST {
 			return false;
 		}
 
+		virtual bool isString() {
+			return false;
+		}
+
 	protected:
 		Type type;
 };
@@ -214,10 +218,6 @@ class Header : public AST {
 
 class Atom : public Expr {
 	public:
-		virtual bool isString() {
-			return false;
-		}
-
 		virtual bool isCharOfString() {
 			return false;
 		}
@@ -701,6 +701,8 @@ class ConstString : public Atom {
 		virtual void sem() override {
 			type = typeIArray(typeChar);
 		}
+
+		virtual llvm::Value* compile() const override;
 
 		virtual bool isString() override {
 			return true;
