@@ -268,9 +268,37 @@ Function* FunctionDef::compile() const {
 
 	for (Stmt* s : stmt_list) {
 		s->compile();
+    // Needs checking for one return statement in a block
 	}
 
-	Builder.CreateRetVoid();
+  BasicBlock* InsertBB = Builder.GetInsertBlock();
+
+  if (!InsertBB->getTerminator()) {
+    switch(header->getType()->kind){
+  		// case TYPE_INTEGER:
+      //   Builder.CreateRet(c16(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
+  		// case TYPE_CHAR:
+      //   Builder.CreateRet(c8(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
+  		// case TYPE_BOOLEAN:
+      //   Builder.CreateRet(c8(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
+  		case TYPE_VOID:
+        Builder.CreateRetVoid();
+        break;
+  		default:
+        // Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
+        /* May not be required?? */
+        warning("In function %s, control may reach end of non-void function", header->getName().c_str());
+        if (!InsertBB->getFirstNonPHI()) {
+          InsertBB->eraseFromParent();
+        }
+  	}
+  }
 
 	closeScope();
 	verifyFunction(*TheFunction, &errs());
@@ -296,6 +324,188 @@ Value* VarDef::compile() const {
 	return nullptr;
 }
 
+Value* Skip::compile() const {
+  return nullptr;
+}
+
+
+Value* Assign::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+	Value* l = lval->compile();
+	Value* r = rval->compile();
+	if (rval->isString())
+    Builder.CreateStore(r, l);
+	return Builder.CreateStore(loadValue(r), l);
+}
+
+Value* Call::compile() const {
+  if(isStmt) {
+    if(Builder.GetInsertBlock()->getTerminator())
+      return nullptr;
+  }
+
+	Function *CalleeF = TheModule->getFunction(name);
+
+	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	SymbolEntry* args = e->u.eFunction.firstArgument;
+	// Iterate for each parameter
+	std::vector<llvm::Value*> ArgsV;
+	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
+		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
+			ArgsV.push_back(parameters[i]->compile());
+		else if (parameters[i]->isString())
+			ArgsV.push_back(parameters[i]->compile());
+		else
+			ArgsV.push_back(loadValue(parameters[i]->compile()));
+		args = args->u.eParameter.next;
+		if (!ArgsV.back())
+			return nullptr;
+	}
+
+	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+	return Builder.CreateCall(CalleeF, ArgsV);
+}
+
+Value* Return::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  Value* ret = loadValue(expr->compile());
+  return Builder.CreateRet(ret);
+}
+
+Value* Exit::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  return Builder.CreateRetVoid();
+}
+
+Value* Elsif::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  for (Stmt* st : stmt_list)
+    st->compile();
+
+  return nullptr;
+}
+
+Value* If::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  Value *condition = loadValue(cond->compile());
+  Value *if_cond = Builder.CreateICmpNE(condition, c8(0), "if_cond");
+
+  Function *TheFunction = Builder.GetInsertBlock()->getParent();
+
+  BasicBlock *ThenBB =
+    BasicBlock::Create(TheContext, "then", TheFunction);
+  BasicBlock *ElseBB =
+    BasicBlock::Create(TheContext, "else", TheFunction);
+  BasicBlock *AfterBB =
+    BasicBlock::Create(TheContext, "endif", TheFunction);
+
+    Builder.CreateCondBr(if_cond, ThenBB, ElseBB);
+    Builder.SetInsertPoint(ThenBB);
+
+    for (Stmt* st : statements)
+      st->compile();
+
+    if(!Builder.GetInsertBlock()->getTerminator())
+      Builder.CreateBr(AfterBB);
+    Builder.SetInsertPoint(ElseBB);
+
+    for (Elsif* e : elsif_list) {
+      Expr* exp = e->getCond();
+      Value* condition = loadValue(exp->compile());
+      Value *elsif_cond = Builder.CreateICmpNE(condition, c8(0), "elsif_cond");
+      BasicBlock *ElsifThenBB =
+        BasicBlock::Create(TheContext, "elsif_then", TheFunction);
+      BasicBlock *NextElsifBB =
+        BasicBlock::Create(TheContext, "next_elsif", TheFunction);
+
+      Builder.CreateCondBr(elsif_cond, ElsifThenBB, NextElsifBB);
+      Builder.SetInsertPoint(ElsifThenBB);
+
+      e->compile();
+
+      if(!Builder.GetInsertBlock()->getTerminator())
+        Builder.CreateBr(AfterBB);
+      Builder.SetInsertPoint(NextElsifBB);
+    }
+
+    for (Stmt *st : else_statements)
+      st->compile();
+
+    if(!Builder.GetInsertBlock()->getTerminator())
+      Builder.CreateBr(AfterBB);
+    Builder.SetInsertPoint(AfterBB);
+
+    return nullptr;
+}
+
+Value* For::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  BasicBlock *PrevBB = Builder.GetInsertBlock();
+  Function *TheFunction = PrevBB->getParent();
+
+  BasicBlock *LoopBB =
+    BasicBlock::Create(TheContext, "loop", TheFunction);
+  BasicBlock *BodyBB =
+    BasicBlock::Create(TheContext, "body", TheFunction);
+  BasicBlock *AfterLoopBB =
+    BasicBlock::Create(TheContext, "endfor", TheFunction);
+
+  for (Simple* s : init)
+    s->compile();
+
+  Builder.CreateBr(LoopBB);
+  Builder.SetInsertPoint(LoopBB);
+  Value* condition = loadValue(cond->compile());
+  Value *loop_cond = Builder.CreateICmpSGT(condition, c8(0), "loop_cond");
+
+  Builder.CreateCondBr(loop_cond, BodyBB, AfterLoopBB);
+  Builder.SetInsertPoint(BodyBB);
+  for (Stmt* st : stmt_list)
+    st->compile();
+  for (Simple* s : after)
+    s->compile();
+
+  Builder.CreateBr(LoopBB);
+  Builder.SetInsertPoint(AfterLoopBB);
+
+  return nullptr;
+}
+
+Value* Id::compile() const {
+	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+
+	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
+		return loadValue((AllocaInst*) e->alloca);
+
+	return (AllocaInst *) e->alloca;
+}
+
+Value* ConstString::compile() const {
+	std::vector<Constant*> values;
+	for (char c : mystring)
+		values.push_back(c8(c));
+	values.push_back(c8('\0'));
+
+	ArrayType* string_type = ArrayType::get(i8, values.size());
+	GlobalVariable* TheString =
+		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
+				ConstantArray::get(string_type, values), "string_constant");
+
+	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
+}
+
 Value* ConstInt::compile() const {
 	return c16(num);
 }
@@ -304,15 +514,21 @@ Value* ConstChar::compile() const {
 	return c8(mychar);
 }
 
+Value* ConstBool::compile() const {
+	return c8(boolean);
+}
+
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
+  V = loadValue(V);
 	switch(op) {
 		case UPLUS:
 			return V;
 		case UMINUS:
 			return Builder.CreateNeg(V, "uminustmp");
 		case NOT:
-			return Builder.CreateNot(V, "nottmp");
+      V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
+      return Builder.CreateZExt(V, i8, "nottmp");
 		default:
 			return nullptr;
 	}
@@ -364,66 +580,4 @@ Value* BinOp::compile() const {
 		default:
 			return nullptr;
 	}
-}
-
-Value* ConstBool::compile() const {
-	return c8(boolean);
-}
-
-Value* Assign::compile() const {
-	Value* l = lval->compile();
-	Value* r = rval->compile();
-	if (rval->isString()) Builder.CreateStore(r, l);
-	return Builder.CreateStore(loadValue(r), l);
-}
-
-Value* Call::compile() const {
-	Function *CalleeF = TheModule->getFunction(name);
-	// Look up the name in the global module table
-	if (!CalleeF) {
-		std::cout << "Unkown function referenced" << std::endl;
-		return nullptr;
-	}
-
-	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
-	SymbolEntry* args = e->u.eFunction.firstArgument;
-	// Iterate for each parameter
-	std::vector<llvm::Value*> ArgsV;
-	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
-			ArgsV.push_back(parameters[i]->compile());
-		else if (parameters[i]->isString())
-			ArgsV.push_back(parameters[i]->compile());
-		else
-			ArgsV.push_back(loadValue(parameters[i]->compile()));
-		args = args->u.eParameter.next;
-		if (!ArgsV.back())
-			return nullptr;
-	}
-
-	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
-	return Builder.CreateCall(CalleeF, ArgsV);
-}
-
-Value* Id::compile() const {
-	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
-
-	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
-		return loadValue((AllocaInst*) e->alloca);
-
-	return (AllocaInst *) e->alloca;
-}
-
-Value* ConstString::compile() const {
-	std::vector<Constant*> values;
-	for (char c : mystring)
-		values.push_back(c8(c));
-	values.push_back(c8('\0'));
-
-	ArrayType* string_type = ArrayType::get(i8, values.size());
-	GlobalVariable* TheString =
-		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
-				ConstantArray::get(string_type, values), "string_constant");
-
-	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }
