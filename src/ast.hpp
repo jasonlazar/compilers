@@ -662,6 +662,8 @@ class For : public Stmt {
 				st->sem();
 		}
 
+		virtual llvm::Value* compile() const override;
+
 	private:
 		std::vector<Simple*> init;
 		Expr* cond;

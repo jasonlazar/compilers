@@ -16,14 +16,12 @@ def hello ():
     return b
   end
 
-  putb(bar(true))
-  putb(bar(false))
-
-  <*
-  int x
-  x := geti()
-  printInteger(foo(x))
-  putc('\n')
-  *>
+  int n, i
+  n := geti()
+  
+  for i:=0; i<=n; i:=i+1:
+    puti(i)
+    putc('\n')
+  end
 
 end

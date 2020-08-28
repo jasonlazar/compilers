@@ -377,6 +377,41 @@ Value* Exit::compile() const {
   return Builder.CreateRetVoid();
 }
 
+Value* For::compile() const {
+  if(Builder.GetInsertBlock()->getTerminator())
+    return nullptr;
+
+  BasicBlock *PrevBB = Builder.GetInsertBlock();
+  Function *TheFunction = PrevBB->getParent();
+
+  BasicBlock *LoopBB =
+    BasicBlock::Create(TheContext, "loop", TheFunction);
+  BasicBlock *BodyBB =
+    BasicBlock::Create(TheContext, "body", TheFunction);
+  BasicBlock *AfterLoopBB =
+    BasicBlock::Create(TheContext, "endfor", TheFunction);
+
+  for (Simple* s : init)
+    s->compile();
+
+  Builder.CreateBr(LoopBB);
+  Builder.SetInsertPoint(LoopBB);
+  Value* condition = loadValue(cond->compile());
+  Value *loop_cond = Builder.CreateICmpSGT(condition, c8(0), "loop_cond");
+
+  Builder.CreateCondBr(loop_cond, BodyBB, AfterLoopBB);
+  Builder.SetInsertPoint(BodyBB);
+  for (Stmt* st : stmt_list)
+    st->compile();
+  for (Simple* s : after)
+    s->compile();
+
+  Builder.CreateBr(LoopBB);
+  Builder.SetInsertPoint(AfterLoopBB);
+
+  return nullptr;
+}
+
 Value* Id::compile() const {
 	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 
