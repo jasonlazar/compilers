@@ -343,6 +343,8 @@ class Skip : public Simple {
 			out << "Skip";
 		}
 		virtual void sem() override {}
+
+		virtual llvm::Value* compile() const override;
 };
 
 class Assign : public Simple {
@@ -492,6 +494,8 @@ class Return : public Stmt {
 				fatal(expr.str().c_str());
 			}
 		}
+
+		virtual llvm::Value* compile() const override;
 
 	private:
 		Expr* expr;
@@ -681,7 +685,7 @@ class Id : public Atom {
 			}
 		}
 
-		virtual llvm::Value* compile() const override; 
+		virtual llvm::Value* compile() const override;
 
 	private:
 		std::string id;
@@ -786,6 +790,26 @@ class ConstChar : public Expr {
 
 	private:
 		char mychar;
+};
+
+class ConstBool : public Expr {
+	public:
+		ConstBool(bool b) :
+			boolean(b) {}
+
+		virtual void printOn(std::ostream& out) const override {
+			out << "ConstBool(";
+			out << (boolean ? "true" : "false") << ")";
+		}
+
+		virtual void sem() override {
+			type = typeBoolean;
+		}
+
+		virtual llvm::Value* compile() const override;
+
+	private:
+		bool boolean;
 };
 
 class UnOp : public Expr {
@@ -936,26 +960,6 @@ class BinOp : public Expr {
 		Expr* left;
 		binary_ops op;
 		Expr* right;
-};
-
-class ConstBool : public Expr {
-	public:
-		ConstBool(bool b) :
-			boolean(b) {}
-
-		virtual void printOn(std::ostream& out) const override {
-			out << "ConstBool(";
-			out << (boolean ? "true" : "false") << ")";
-		}
-
-		virtual void sem() override {
-			type = typeBoolean;
-		}
-
-		virtual llvm::Value* compile() const override;
-
-	private:
-		bool boolean;
 };
 
 class New : public Expr {

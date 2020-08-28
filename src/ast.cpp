@@ -296,12 +296,82 @@ Value* VarDef::compile() const {
 	return nullptr;
 }
 
+Value* Skip::compile() const {
+  return nullptr;
+}
+
+
+Value* Assign::compile() const {
+	Value* l = lval->compile();
+	Value* r = rval->compile();
+	if (rval->isString()) Builder.CreateStore(r, l);
+	return Builder.CreateStore(loadValue(r), l);
+}
+
+Value* Call::compile() const {
+	Function *CalleeF = TheModule->getFunction(name);
+	// Look up the name in the global module table
+	if (!CalleeF) {
+		std::cout << "Unkown function referenced" << std::endl;
+		return nullptr;
+	}
+
+	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	SymbolEntry* args = e->u.eFunction.firstArgument;
+	// Iterate for each parameter
+	std::vector<llvm::Value*> ArgsV;
+	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
+		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
+			ArgsV.push_back(parameters[i]->compile());
+		else if (parameters[i]->isString())
+			ArgsV.push_back(parameters[i]->compile());
+		else
+			ArgsV.push_back(loadValue(parameters[i]->compile()));
+		args = args->u.eParameter.next;
+		if (!ArgsV.back())
+			return nullptr;
+	}
+
+	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+	return Builder.CreateCall(CalleeF, ArgsV);
+}
+
+Value* Return::compile() const {
+}
+
+Value* Id::compile() const {
+	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+
+	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
+		return loadValue((AllocaInst*) e->alloca);
+
+	return (AllocaInst *) e->alloca;
+}
+
+Value* ConstString::compile() const {
+	std::vector<Constant*> values;
+	for (char c : mystring)
+		values.push_back(c8(c));
+	values.push_back(c8('\0'));
+
+	ArrayType* string_type = ArrayType::get(i8, values.size());
+	GlobalVariable* TheString =
+		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
+				ConstantArray::get(string_type, values), "string_constant");
+
+	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
+}
+
 Value* ConstInt::compile() const {
 	return c16(num);
 }
 
 Value* ConstChar::compile() const {
 	return c8(mychar);
+}
+
+Value* ConstBool::compile() const {
+	return c8(boolean);
 }
 
 Value* UnOp::compile() const {
@@ -364,66 +434,4 @@ Value* BinOp::compile() const {
 		default:
 			return nullptr;
 	}
-}
-
-Value* ConstBool::compile() const {
-	return c8(boolean);
-}
-
-Value* Assign::compile() const {
-	Value* l = lval->compile();
-	Value* r = rval->compile();
-	if (rval->isString()) Builder.CreateStore(r, l);
-	return Builder.CreateStore(loadValue(r), l);
-}
-
-Value* Call::compile() const {
-	Function *CalleeF = TheModule->getFunction(name);
-	// Look up the name in the global module table
-	if (!CalleeF) {
-		std::cout << "Unkown function referenced" << std::endl;
-		return nullptr;
-	}
-
-	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
-	SymbolEntry* args = e->u.eFunction.firstArgument;
-	// Iterate for each parameter
-	std::vector<llvm::Value*> ArgsV;
-	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
-			ArgsV.push_back(parameters[i]->compile());
-		else if (parameters[i]->isString())
-			ArgsV.push_back(parameters[i]->compile());
-		else
-			ArgsV.push_back(loadValue(parameters[i]->compile()));
-		args = args->u.eParameter.next;
-		if (!ArgsV.back())
-			return nullptr;
-	}
-
-	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
-	return Builder.CreateCall(CalleeF, ArgsV);
-}
-
-Value* Id::compile() const {
-	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
-
-	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
-		return loadValue((AllocaInst*) e->alloca);
-
-	return (AllocaInst *) e->alloca;
-}
-
-Value* ConstString::compile() const {
-	std::vector<Constant*> values;
-	for (char c : mystring)
-		values.push_back(c8(c));
-	values.push_back(c8('\0'));
-
-	ArrayType* string_type = ArrayType::get(i8, values.size());
-	GlobalVariable* TheString =
-		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
-				ConstantArray::get(string_type, values), "string_constant");
-
-	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }
