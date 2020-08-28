@@ -49,6 +49,8 @@ llvm::Type* AST::translate(Type t) {
 			return llvm::Type::getInt8Ty(AST::TheContext);
 		case TYPE_VOID:
 			return llvm::Type::getVoidTy(AST::TheContext);
+		case TYPE_IARRAY:
+			return PointerType::get(translate(t->refType), 0);
 		default:
 			return nullptr;
 	}
@@ -210,8 +212,10 @@ Function* Header::compile() const {
 		std::vector<llvm::Type*> types;
 		for (Formal* f : formal_list) {
 			size_t formal_size = f->getIdList().size();
+			llvm::Type* formal_type = translate(f->getType());
+			llvm::Type* ft = (f->getRef()) ? PointerType::getUnqual(formal_type) : formal_type;
 			for (size_t i=0; i<formal_size; ++i)
-				types.push_back(translate(f->getType()));
+				types.push_back(ft);
 		}
 		FunctionType* FT = FunctionType::get(translate(type), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
@@ -313,6 +317,9 @@ Value* BinOp::compile() const {
 	Value* l = left->compile();
 	Value* r = right->compile();
 
+	l = loadValue(l);
+	r = loadValue(r);
+
 	switch(op) {
 		case PLUS:
 			return Builder.CreateAdd(l, r, "addtmp");
@@ -363,10 +370,16 @@ Value* Call::compile() const {
 		return nullptr;
 	}
 
+	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	SymbolEntry* args = e->u.eFunction.firstArgument;
 	// Iterate for each parameter
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		ArgsV.push_back(loadValue(parameters[i]->compile()));
+		if (args->u.eParameter.mode == PASS_BY_VALUE)
+			ArgsV.push_back(loadValue(parameters[i]->compile()));
+		else
+			ArgsV.push_back(parameters[i]->compile());
+		args = args->u.eParameter.next;
 		if (!ArgsV.back())
 			return nullptr;
 	}
@@ -378,5 +391,8 @@ Value* Call::compile() const {
 Value* Id::compile() const {
 	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 
-	return (Value *) e->alloca;
+	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
+		return loadValue((AllocaInst*) e->alloca);
+
+	return (AllocaInst *) e->alloca;
 }
