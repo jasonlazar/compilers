@@ -271,26 +271,32 @@ Function* FunctionDef::compile() const {
     // Needs checking for one return statement in a block
 	}
 
-  if (!Builder.GetInsertBlock()->getTerminator()) {
+  BasicBlock* InsertBB = Builder.GetInsertBlock();
+
+  if (!InsertBB->getTerminator()) {
     switch(header->getType()->kind){
-  		case TYPE_INTEGER:
-        Builder.CreateRet(c16(0));
-        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-        break;
-  		case TYPE_CHAR:
-        Builder.CreateRet(c8(0));
-        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-        break;
-  		case TYPE_BOOLEAN:
-        Builder.CreateRet(c8(0));
-        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-        break;
+  		// case TYPE_INTEGER:
+      //   Builder.CreateRet(c16(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
+  		// case TYPE_CHAR:
+      //   Builder.CreateRet(c8(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
+  		// case TYPE_BOOLEAN:
+      //   Builder.CreateRet(c8(0));
+      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+      //   break;
   		case TYPE_VOID:
         Builder.CreateRetVoid();
         break;
   		default:
-        Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
-        // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+        // Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
+        /* May not be required?? */
+        warning("In function %s, control may reach end of non-void function", header->getName().c_str());
+        if (!InsertBB->getFirstNonPHI()) {
+          InsertBB->eraseFromParent();
+        }
   	}
   }
 
