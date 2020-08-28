@@ -38,6 +38,7 @@ class AST {
 		void llvm_compile_and_dump();
 
 		static llvm::Type* translate(Type t);
+		static llvm::Value* loadValue(llvm::Value* p);
 
 	protected:
 		static llvm::LLVMContext TheContext;
@@ -101,6 +102,10 @@ class Expr : public AST {
 		}
 
 		virtual bool isLval() {
+			return false;
+		}
+
+		virtual bool isString() {
 			return false;
 		}
 
@@ -213,10 +218,6 @@ class Header : public AST {
 
 class Atom : public Expr {
 	public:
-		virtual bool isString() {
-			return false;
-		}
-
 		virtual bool isCharOfString() {
 			return false;
 		}
@@ -326,6 +327,8 @@ class VarDef : public Decl {
 			}
 		}
 
+		virtual llvm::Value* compile() const override;
+
 	private:
 		Type type;
 		std::vector<std::string> id_list;
@@ -377,6 +380,8 @@ class Assign : public Simple {
 				fatal(atom.str().c_str());
 			}
 		}
+
+		virtual llvm::Value* compile() const override;
 
 	private:
 		Atom* lval;
@@ -676,6 +681,8 @@ class Id : public Atom {
 			}
 		}
 
+		virtual llvm::Value* compile() const override; 
+
 	private:
 		std::string id;
 };
@@ -694,6 +701,8 @@ class ConstString : public Atom {
 		virtual void sem() override {
 			type = typeIArray(typeChar);
 		}
+
+		virtual llvm::Value* compile() const override;
 
 		virtual bool isString() override {
 			return true;
@@ -890,6 +899,10 @@ class BinOp : public Expr {
 						expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
 						fatal(expr_stream.str().c_str());
 					}
+					if (equalType(left->getType(), typeIArray(typeAny)))
+						fatal("You cannot compare arrays");
+					else if (equalType(left->getType(), typeList(typeAny)))
+						fatal("You cannot compare lists");
 					type = typeBoolean;
 					break;
 				case AND:

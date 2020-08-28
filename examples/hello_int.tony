@@ -1,10 +1,30 @@
 def hello ():
-  def foo(char x, c; int d):
-  	int b
-
-	skip
+ <*
+  def printInteger(int a):
+    puti(a)
   end
-  int n
+  
+  def foo(ref int a):
+	int b
+    b := a + 8
 
-  puti(17)
+	puti(b)
+	putc('\n')
+  end
+
+  int x
+
+  x := geti()
+  foo(x)
+  printInteger(x)
+  putc('\n')
+  *>
+  bool b, bb
+  int a, aa
+
+  a := geti()
+  aa := geti()
+  b := a <> aa
+  bb := a >= aa
+  putb(b and bb)
 end

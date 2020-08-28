@@ -8,12 +8,18 @@ using llvm::IRBuilder;
 using llvm::Module;
 using llvm::IntegerType;
 using llvm::PointerType;
+using llvm::ArrayType;
+using llvm::Constant;
+using llvm::GlobalVariable;
+using llvm::GlobalValue;
+using llvm::ConstantArray;
 using llvm::BasicBlock;
+using llvm::AllocaInst;
+using llvm::GetElementPtrInst;
 using llvm::outs;
 using llvm::errs;
 
 LLVMContext AST::TheContext;
-using llvm::outs;
 IRBuilder<> AST::Builder(TheContext);
 std::unique_ptr<Module> AST::TheModule;
 
@@ -49,9 +55,19 @@ llvm::Type* AST::translate(Type t) {
 			return llvm::Type::getInt8Ty(AST::TheContext);
 		case TYPE_VOID:
 			return llvm::Type::getVoidTy(AST::TheContext);
+		case TYPE_IARRAY:
+			return PointerType::get(translate(t->refType), 0);
 		default:
 			return nullptr;
 	}
+}
+
+Value *AST::loadValue(Value *p)
+{
+	if (PointerType::classof(p->getType()))
+		return Builder.CreateLoad(p, "var");
+	else
+		return p;
 }
 
 void AST::llvm_compile_and_dump() {
@@ -182,24 +198,42 @@ void AST::llvm_compile_and_dump() {
 }
 
 Function* Header::compile() const {
+	SymbolEntry* func = newFunction(id.c_str());
+	if (!is_def)
+		forwardFunction(func);
+	openScope();
+	currentScope->returnType = type;
+	for (Formal* f : formal_list) {
+		for (std::string id : f->getIdList()) {
+			PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+			newParameter(id.c_str(), f->getType(), passmode, func);
+		}
+	}
+
+	endFunctionHeader(func, type);
+
 	Function *TheFunction = TheModule->getFunction(id);
 
 	if (!TheFunction) {
 		std::vector<llvm::Type*> types;
 		for (Formal* f : formal_list) {
 			size_t formal_size = f->getIdList().size();
+			llvm::Type* formal_type = translate(f->getType());
+			llvm::Type* ft = (f->getRef()) ? PointerType::getUnqual(formal_type) : formal_type;
 			for (size_t i=0; i<formal_size; ++i)
-				types.push_back(translate(f->getType()));
-			/*	for (std::string id : f->getIdList()) {
-				PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-				newParameter(id.c_str(), f->getType(), passmode, func);
-				}
-			 */
+				types.push_back(ft);
 		}
 		FunctionType* FT = FunctionType::get(translate(type), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
 
 		// Set names for all arguments
+		auto it = TheFunction->arg_begin();
+		for (Formal* f : formal_list) {
+			for (std::string id : f->getIdList()) {
+				it->setName(id);
+				++it;
+			}
+		}
 	}
 	return TheFunction;
 }
@@ -210,11 +244,26 @@ Function* FunctionDef::compile() const {
 	if (!TheFunction)
 		return nullptr;
 
+	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
+	Builder.SetInsertPoint(BB);
+
+	for (auto &Arg : TheFunction->args()) {
+		// Create an alloca for this variable.
+		AllocaInst *Alloca = Builder.CreateAlloca(Arg.getType(), nullptr, Arg.getName());
+
+		// Store the initial value into the alloca.
+		Builder.CreateStore(&Arg, Alloca);
+
+		// Add arguments to variable symbol table.
+		SymbolEntry *se = lookupEntry(Arg.getName().str().c_str(), LOOKUP_ALL_SCOPES, true);
+		se->alloca = Alloca;
+	}
+
 	for (Decl* d : decl_list) {
+		Builder.SetInsertPoint(BB);
 		d->compile();
 	}
 
-	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
 	Builder.SetInsertPoint(BB);
 
 	for (Stmt* s : stmt_list) {
@@ -223,6 +272,7 @@ Function* FunctionDef::compile() const {
 
 	Builder.CreateRetVoid();
 
+	closeScope();
 	verifyFunction(*TheFunction, &errs());
 	return TheFunction;
 }
@@ -230,10 +280,20 @@ Function* FunctionDef::compile() const {
 Function* FunctionDecl::compile() const {
 	Function* TheFunction = header->compile();
 
+	closeScope();
 	if (!TheFunction)
 		return nullptr;
 
 	return TheFunction;
+}
+
+Value* VarDef::compile() const {
+	for (std::string id : id_list) {
+		SymbolEntry* se = newVariable(id.c_str(), type);
+		AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, id);
+		se->alloca = (void *) alloc;
+	}
+	return nullptr;
 }
 
 Value* ConstInt::compile() const {
@@ -263,6 +323,11 @@ Value* BinOp::compile() const {
 	Value* l = left->compile();
 	Value* r = right->compile();
 
+	l = loadValue(l);
+	r = loadValue(r);
+
+	Value* V;
+
 	switch(op) {
 		case PLUS:
 			return Builder.CreateAdd(l, r, "addtmp");
@@ -275,17 +340,23 @@ Value* BinOp::compile() const {
 		case MOD:
 			return Builder.CreateSRem(l, r, "modtmp");
 		case EQ:
-			return Builder.CreateICmpEQ(l, r, "eqtmp");
+			V = Builder.CreateICmpEQ(l, r, "eqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case NEQ:
-			return Builder.CreateICmpNE(l, r, "neqtmp");
+			V = Builder.CreateICmpNE(l, r, "neqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case GREATER:
-			return Builder.CreateICmpSGT(l, r, "gttmp");
+			V = Builder.CreateICmpSGT(l, r, "gttmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case LESS:
-			return Builder.CreateICmpSLT(l, r, "lttmp");
+			V = Builder.CreateICmpSLT(l, r, "lttmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case GEQ:
-			return Builder.CreateICmpSGE(l, r, "geqtmp");
+			V = Builder.CreateICmpSGE(l, r, "geqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case LEQ:
-			return Builder.CreateICmpSLE(l, r, "leqtmp");
+			V = Builder.CreateICmpSLE(l, r, "leqtmp");
+			return Builder.CreateZExt(V, i8, "ext");
 		case AND:
 			return Builder.CreateAnd(l, r, "andtmp");
 		case OR:
@@ -299,6 +370,13 @@ Value* ConstBool::compile() const {
 	return c8(boolean);
 }
 
+Value* Assign::compile() const {
+	Value* l = lval->compile();
+	Value* r = rval->compile();
+	if (rval->isString()) Builder.CreateStore(r, l);
+	return Builder.CreateStore(loadValue(r), l);
+}
+
 Value* Call::compile() const {
 	Function *CalleeF = TheModule->getFunction(name);
 	// Look up the name in the global module table
@@ -307,14 +385,45 @@ Value* Call::compile() const {
 		return nullptr;
 	}
 
+	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	SymbolEntry* args = e->u.eFunction.firstArgument;
 	// Iterate for each parameter
 	std::vector<llvm::Value*> ArgsV;
 	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
-		ArgsV.push_back(parameters[i]->compile());
+		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
+			ArgsV.push_back(parameters[i]->compile());
+		else if (parameters[i]->isString())
+			ArgsV.push_back(parameters[i]->compile());
+		else
+			ArgsV.push_back(loadValue(parameters[i]->compile()));
+		args = args->u.eParameter.next;
 		if (!ArgsV.back())
 			return nullptr;
 	}
 
 	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
 	return Builder.CreateCall(CalleeF, ArgsV);
+}
+
+Value* Id::compile() const {
+	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+
+	if (e->entryType == ENTRY_PARAMETER && e->u.eParameter.mode == PASS_BY_REFERENCE)
+		return loadValue((AllocaInst*) e->alloca);
+
+	return (AllocaInst *) e->alloca;
+}
+
+Value* ConstString::compile() const {
+	std::vector<Constant*> values;
+	for (char c : mystring)
+		values.push_back(c8(c));
+	values.push_back(c8('\0'));
+
+	ArrayType* string_type = ArrayType::get(i8, values.size());
+	GlobalVariable* TheString =
+		new GlobalVariable(*TheModule, string_type, true, GlobalValue::InternalLinkage,
+				ConstantArray::get(string_type, values), "string_constant");
+
+	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }

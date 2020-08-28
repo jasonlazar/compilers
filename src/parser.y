@@ -135,6 +135,9 @@ program:
 		openScope();
 		Library::load_library_functions();
 		$1->sem();
+		closeScope();
+		openScope();
+		Library::load_library_functions();
 		$1->llvm_compile_and_dump();
 		closeScope();
 		destroySymbolTable();
@@ -268,7 +271,7 @@ expr:
 |	"false"					{  $$ = new ConstBool(false); }
 |	"not" expr				{  $$ = new UnOp(NOT, $2); }
 |	expr "and" expr			{  $$ = new BinOp($1, AND, $3); }
-|	expr "or" expr			{  $$ = new BinOp($1, AND, $3); }
+|	expr "or" expr			{  $$ = new BinOp($1, OR, $3); }
 |	"new" type "[" expr "]"	{  $$ = new New($2, $4); }
 |	"nil"					{  $$ = new Nil; }
 |	"nil?" "(" expr ")"		{  $$ = new UnOp(IS_NIL, $3); }
