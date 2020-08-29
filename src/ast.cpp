@@ -15,6 +15,7 @@ using llvm::GlobalValue;
 using llvm::ConstantArray;
 using llvm::BasicBlock;
 using llvm::AllocaInst;
+using llvm::LoadInst;
 using llvm::GetElementPtrInst;
 using llvm::outs;
 using llvm::errs;
@@ -38,6 +39,8 @@ Function *AST::TheStrlen;
 Function *AST::TheStrcmp;
 Function *AST::TheStrcpy;
 Function *AST::TheStrcat;
+Function *AST::TheInit;
+Function *AST::TheMalloc;
 
 llvm::Type *AST::i1 = IntegerType::get(TheContext, 1);
 llvm::Type *AST::i8 = IntegerType::get(TheContext, 8);
@@ -173,6 +176,16 @@ void AST::llvm_compile_and_dump() {
 	TheStrcat =
 		Function::Create(strcat_type, Function::ExternalLinkage, "strcat", TheModule.get());
 
+	// garbage collector
+	FunctionType *malloc_type =
+		FunctionType::get(PointerType::get(i8, 0), {i64}, false);
+	TheMalloc =
+		Function::Create(malloc_type, Function::ExternalLinkage, "GC_malloc", TheModule.get());
+	FunctionType *init_type =
+		FunctionType::get(llvm::Type::getVoidTy(TheContext), {}, false);
+	TheInit =
+		Function::Create(init_type, Function::ExternalLinkage, "GC_init", TheModule.get());
+
 
 	// Emit the program code.
 	Value* main_func = compile();
@@ -181,13 +194,14 @@ void AST::llvm_compile_and_dump() {
 	if (fun != NULL)
 		fun->setName("_main");
 
-  FunctionType *main_type = FunctionType::get(i32, {}, false);
-  Function *main =
-    Function::Create(main_type, Function::ExternalLinkage, "main", TheModule.get());
-  BasicBlock *BB = BasicBlock::Create(TheContext, "entry", main);
-  Builder.SetInsertPoint(BB);
-  Builder.CreateCall(main_func, {});
-  Builder.CreateRet(c32(0));
+	FunctionType *main_type = FunctionType::get(i32, {}, false);
+	Function *main =
+		Function::Create(main_type, Function::ExternalLinkage, "main", TheModule.get());
+	BasicBlock *BB = BasicBlock::Create(TheContext, "entry", main);
+	Builder.SetInsertPoint(BB);
+	Builder.CreateCall(TheInit, {});
+	Builder.CreateCall(main_func, {});
+	Builder.CreateRet(c32(0));
 
 	// Verify the IR.
 	bool bad = llvm::verifyModule(*TheModule, &errs());
@@ -273,37 +287,37 @@ Function* FunctionDef::compile() const {
 
 	for (Stmt* s : stmt_list) {
 		s->compile();
-    // Needs checking for one return statement in a block
+		// Needs checking for one return statement in a block
 	}
 
-  BasicBlock* InsertBB = Builder.GetInsertBlock();
+	BasicBlock* InsertBB = Builder.GetInsertBlock();
 
-  if (!InsertBB->getTerminator()) {
-    switch(header->getType()->kind){
-  		// case TYPE_INTEGER:
-      //   Builder.CreateRet(c16(0));
-      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-      //   break;
-  		// case TYPE_CHAR:
-      //   Builder.CreateRet(c8(0));
-      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-      //   break;
-  		// case TYPE_BOOLEAN:
-      //   Builder.CreateRet(c8(0));
-      //   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-      //   break;
-  		case TYPE_VOID:
-        Builder.CreateRetVoid();
-        break;
-  		default:
-        // Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
-        /* May not be required?? */
-        warning("In function %s, control may reach end of non-void function", header->getName().c_str());
-        if (!InsertBB->getFirstNonPHI()) {
-          InsertBB->eraseFromParent();
-        }
-  	}
-  }
+	if (!InsertBB->getTerminator()) {
+		switch(header->getType()->kind){
+			// case TYPE_INTEGER:
+			//   Builder.CreateRet(c16(0));
+			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+			//   break;
+			// case TYPE_CHAR:
+			//   Builder.CreateRet(c8(0));
+			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+			//   break;
+			// case TYPE_BOOLEAN:
+			//   Builder.CreateRet(c8(0));
+			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
+			//   break;
+			case TYPE_VOID:
+				Builder.CreateRetVoid();
+				break;
+			default:
+				// Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
+				/* May not be required?? */
+				warning("In function %s, control may reach end of non-void function", header->getName().c_str());
+				if (!InsertBB->getFirstNonPHI()) {
+					InsertBB->eraseFromParent();
+				}
+		}
+	}
 
 	closeScope();
 	verifyFunction(*TheFunction, &errs());
@@ -330,40 +344,45 @@ Value* VarDef::compile() const {
 }
 
 Value* Skip::compile() const {
-  return nullptr;
+	return nullptr;
 }
 
 
 Value* Assign::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
 	Value* l = lval->compile();
 	Value* r = rval->compile();
 	if (rval->isString())
-    Builder.CreateStore(r, l);
+		return Builder.CreateStore(r, l);
+	if (equalType(rval->getType(), typeIArray(typeAny))) {
+		return Builder.CreateStore(r, l);
+	}
 	return Builder.CreateStore(loadValue(r), l);
 }
 
 Value* Call::compile() const {
-  if(isStmt) {
-    if(Builder.GetInsertBlock()->getTerminator())
-      return nullptr;
-  }
+	if(isStmt) {
+		if(Builder.GetInsertBlock()->getTerminator())
+			return nullptr;
+	}
 
 	Function *CalleeF = TheModule->getFunction(name);
 
 	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
 	SymbolEntry* args = e->u.eFunction.firstArgument;
 	// Iterate for each parameter
-	std::vector<llvm::Value*> ArgsV;
+	std::vector<Value*> ArgsV;
 	for (unsigned i = 0, e = parameters.size(); i != e; ++i) {
 		if (args->u.eParameter.mode == PASS_BY_REFERENCE)
 			ArgsV.push_back(parameters[i]->compile());
 		else if (parameters[i]->isString())
 			ArgsV.push_back(parameters[i]->compile());
-		else
+		else if (parameters[i]->isLval())
 			ArgsV.push_back(loadValue(parameters[i]->compile()));
+		else
+			ArgsV.push_back(parameters[i]->compile());
 		args = args->u.eParameter.next;
 		if (!ArgsV.back())
 			return nullptr;
@@ -374,118 +393,118 @@ Value* Call::compile() const {
 }
 
 Value* Return::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
-  Value* ret = loadValue(expr->compile());
-  return Builder.CreateRet(ret);
+	Value* ret = loadValue(expr->compile());
+	return Builder.CreateRet(ret);
 }
 
 Value* Exit::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
-  return Builder.CreateRetVoid();
+	return Builder.CreateRetVoid();
 }
 
 Value* Elsif::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
-  for (Stmt* st : stmt_list)
-    st->compile();
+	for (Stmt* st : stmt_list)
+		st->compile();
 
-  return nullptr;
+	return nullptr;
 }
 
 Value* If::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
-  Value *condition = loadValue(cond->compile());
-  Value *if_cond = Builder.CreateICmpNE(condition, c8(0), "if_cond");
+	Value *condition = loadValue(cond->compile());
+	Value *if_cond = Builder.CreateICmpNE(condition, c8(0), "if_cond");
 
-  Function *TheFunction = Builder.GetInsertBlock()->getParent();
+	Function *TheFunction = Builder.GetInsertBlock()->getParent();
 
-  BasicBlock *ThenBB =
-    BasicBlock::Create(TheContext, "then", TheFunction);
-  BasicBlock *ElseBB =
-    BasicBlock::Create(TheContext, "else", TheFunction);
-  BasicBlock *AfterBB =
-    BasicBlock::Create(TheContext, "endif", TheFunction);
+	BasicBlock *ThenBB =
+		BasicBlock::Create(TheContext, "then", TheFunction);
+	BasicBlock *ElseBB =
+		BasicBlock::Create(TheContext, "else", TheFunction);
+	BasicBlock *AfterBB =
+		BasicBlock::Create(TheContext, "endif", TheFunction);
 
-    Builder.CreateCondBr(if_cond, ThenBB, ElseBB);
-    Builder.SetInsertPoint(ThenBB);
+	Builder.CreateCondBr(if_cond, ThenBB, ElseBB);
+	Builder.SetInsertPoint(ThenBB);
 
-    for (Stmt* st : statements)
-      st->compile();
+	for (Stmt* st : statements)
+		st->compile();
 
-    if(!Builder.GetInsertBlock()->getTerminator())
-      Builder.CreateBr(AfterBB);
-    Builder.SetInsertPoint(ElseBB);
+	if(!Builder.GetInsertBlock()->getTerminator())
+		Builder.CreateBr(AfterBB);
+	Builder.SetInsertPoint(ElseBB);
 
-    for (Elsif* e : elsif_list) {
-      Expr* exp = e->getCond();
-      Value* condition = loadValue(exp->compile());
-      Value *elsif_cond = Builder.CreateICmpNE(condition, c8(0), "elsif_cond");
-      BasicBlock *ElsifThenBB =
-        BasicBlock::Create(TheContext, "elsif_then", TheFunction);
-      BasicBlock *NextElsifBB =
-        BasicBlock::Create(TheContext, "next_elsif", TheFunction);
+	for (Elsif* e : elsif_list) {
+		Expr* exp = e->getCond();
+		Value* condition = loadValue(exp->compile());
+		Value *elsif_cond = Builder.CreateICmpNE(condition, c8(0), "elsif_cond");
+		BasicBlock *ElsifThenBB =
+			BasicBlock::Create(TheContext, "elsif_then", TheFunction);
+		BasicBlock *NextElsifBB =
+			BasicBlock::Create(TheContext, "next_elsif", TheFunction);
 
-      Builder.CreateCondBr(elsif_cond, ElsifThenBB, NextElsifBB);
-      Builder.SetInsertPoint(ElsifThenBB);
+		Builder.CreateCondBr(elsif_cond, ElsifThenBB, NextElsifBB);
+		Builder.SetInsertPoint(ElsifThenBB);
 
-      e->compile();
+		e->compile();
 
-      if(!Builder.GetInsertBlock()->getTerminator())
-        Builder.CreateBr(AfterBB);
-      Builder.SetInsertPoint(NextElsifBB);
-    }
+		if(!Builder.GetInsertBlock()->getTerminator())
+			Builder.CreateBr(AfterBB);
+		Builder.SetInsertPoint(NextElsifBB);
+	}
 
-    for (Stmt *st : else_statements)
-      st->compile();
+	for (Stmt *st : else_statements)
+		st->compile();
 
-    if(!Builder.GetInsertBlock()->getTerminator())
-      Builder.CreateBr(AfterBB);
-    Builder.SetInsertPoint(AfterBB);
+	if(!Builder.GetInsertBlock()->getTerminator())
+		Builder.CreateBr(AfterBB);
+	Builder.SetInsertPoint(AfterBB);
 
-    return nullptr;
+	return nullptr;
 }
 
 Value* For::compile() const {
-  if(Builder.GetInsertBlock()->getTerminator())
-    return nullptr;
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
 
-  BasicBlock *PrevBB = Builder.GetInsertBlock();
-  Function *TheFunction = PrevBB->getParent();
+	BasicBlock *PrevBB = Builder.GetInsertBlock();
+	Function *TheFunction = PrevBB->getParent();
 
-  BasicBlock *LoopBB =
-    BasicBlock::Create(TheContext, "loop", TheFunction);
-  BasicBlock *BodyBB =
-    BasicBlock::Create(TheContext, "body", TheFunction);
-  BasicBlock *AfterLoopBB =
-    BasicBlock::Create(TheContext, "endfor", TheFunction);
+	BasicBlock *LoopBB =
+		BasicBlock::Create(TheContext, "loop", TheFunction);
+	BasicBlock *BodyBB =
+		BasicBlock::Create(TheContext, "body", TheFunction);
+	BasicBlock *AfterLoopBB =
+		BasicBlock::Create(TheContext, "endfor", TheFunction);
 
-  for (Simple* s : init)
-    s->compile();
+	for (Simple* s : init)
+		s->compile();
 
-  Builder.CreateBr(LoopBB);
-  Builder.SetInsertPoint(LoopBB);
-  Value* condition = loadValue(cond->compile());
-  Value *loop_cond = Builder.CreateICmpSGT(condition, c8(0), "loop_cond");
+	Builder.CreateBr(LoopBB);
+	Builder.SetInsertPoint(LoopBB);
+	Value* condition = loadValue(cond->compile());
+	Value *loop_cond = Builder.CreateICmpSGT(condition, c8(0), "loop_cond");
 
-  Builder.CreateCondBr(loop_cond, BodyBB, AfterLoopBB);
-  Builder.SetInsertPoint(BodyBB);
-  for (Stmt* st : stmt_list)
-    st->compile();
-  for (Simple* s : after)
-    s->compile();
+	Builder.CreateCondBr(loop_cond, BodyBB, AfterLoopBB);
+	Builder.SetInsertPoint(BodyBB);
+	for (Stmt* st : stmt_list)
+		st->compile();
+	for (Simple* s : after)
+		s->compile();
 
-  Builder.CreateBr(LoopBB);
-  Builder.SetInsertPoint(AfterLoopBB);
+	Builder.CreateBr(LoopBB);
+	Builder.SetInsertPoint(AfterLoopBB);
 
-  return nullptr;
+	return nullptr;
 }
 
 Value* Id::compile() const {
@@ -511,6 +530,14 @@ Value* ConstString::compile() const {
 	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }
 
+Value* ArrayItem::compile() const {
+	Value* arr = array->compile();
+	Value* position = loadValue(pos->compile());
+	Value* pos32 = Builder.CreateSExt(position, i32, "exttmp");
+	LoadInst* ld = Builder.CreateLoad(arr, "ldtmp");
+	return Builder.CreateInBoundsGEP(ld, pos32, "geptmp");
+}
+
 Value* ConstInt::compile() const {
 	return c16(num);
 }
@@ -525,15 +552,15 @@ Value* ConstBool::compile() const {
 
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
-  V = loadValue(V);
+	V = loadValue(V);
 	switch(op) {
 		case UPLUS:
 			return V;
 		case UMINUS:
 			return Builder.CreateNeg(V, "uminustmp");
 		case NOT:
-      V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
-      return Builder.CreateZExt(V, i8, "nottmp");
+			V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
+			return Builder.CreateZExt(V, i8, "nottmp");
 		default:
 			return nullptr;
 	}
@@ -585,4 +612,13 @@ Value* BinOp::compile() const {
 		default:
 			return nullptr;
 	}
+}
+
+Value* New::compile() const {
+	Value* s = size->compile();
+	std::vector<Value*> ArgsV;
+	Value* multmp = Builder.CreateMul(s, c16(sizeOfType(ref)), "multmp");
+	ArgsV.push_back(Builder.CreateSExt(multmp, i64, "exttmp"));
+	Value* ptr = Builder.CreateCall(TheMalloc, ArgsV, "malloctmp");
+	return Builder.CreateBitCast(ptr, PointerType::getUnqual(translate(ref)), "bitctemp");
 }

@@ -11,15 +11,32 @@ def hello ():
     return b
   end
 
-  def bool bar(bool b):
-    b := not b
+  int[][] a
+  int i, j
+
+  a := new int[][5]
+
+  for i:=0; i<5; i:=i+1:
+    a[i] := new int[2]
   end
 
-  int n, i
-  n := geti()
+  for i:=0; i<5; i:=i+1:
+    for j:=0; j<2; j:=j+1:
+	  a[i][j] := geti()
+	end
+  end
 
+  for i:=0; i<5; i:=i+1:
+    for j:=0; j<2; j:=j+1:
+	  puti(a[i][j])
+	  putc('\n')
+	end
+  end
+
+  <*
   for i:=0; i<=n; i:=i+1:
     skip
   end
+  *>
 
 end

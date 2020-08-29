@@ -60,6 +60,8 @@ class AST {
 		static llvm::Function *TheStrcmp;
 		static llvm::Function *TheStrcpy;
 		static llvm::Function *TheStrcat;
+		static llvm::Function *TheInit;
+		static llvm::Function *TheMalloc;
 
 		static llvm::Type *i1;
 		static llvm::Type *i8;
@@ -265,7 +267,7 @@ class FunctionDef : public Decl {
 				s->sem();
 			}
 
-	//		printSymbolTable();
+			//		printSymbolTable();
 
 			closeScope();
 		}
@@ -750,14 +752,6 @@ class ArrayItem : public Atom {
 			out << "ArrayItem(" << *array << ", " << *pos << ")";
 		}
 
-		virtual bool isLval() override {
-			return true;
-		}
-
-		virtual bool isCharOfString() override {
-			return array->isString();
-		}
-
 		virtual void sem() override {
 			array->sem();
 			Type t = array->getType();
@@ -767,6 +761,16 @@ class ArrayItem : public Atom {
 				fatal(atom.str().c_str());
 			}
 			type = t->refType;
+		}
+
+		virtual llvm::Value* compile() const override;
+
+		virtual bool isLval() override {
+			return true;
+		}
+
+		virtual bool isCharOfString() override {
+			return array->isString();
 		}
 
 	private:
@@ -998,6 +1002,8 @@ class New : public Expr {
 				fatal("Integer size expected for new operator");
 			}
 		}
+
+		virtual llvm::Value* compile() const override;
 
 	private:
 		Type ref;
