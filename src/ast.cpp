@@ -176,13 +176,18 @@ void AST::llvm_compile_and_dump() {
 
 	// Emit the program code.
 	Value* main_func = compile();
-	if (main_func->getName() != "main") {
-		auto fun = TheModule->getFunction("main");
-		main_func = TheModule->getFunction(main_func->getName());
-		if (fun != NULL)
-			fun->setName("_main");
-		main_func->setName("main");
-	}
+	auto fun = TheModule->getFunction("main");
+	main_func = TheModule->getFunction(main_func->getName());
+	if (fun != NULL)
+		fun->setName("_main");
+
+  FunctionType *main_type = FunctionType::get(i32, {}, false);
+  Function *main =
+    Function::Create(main_type, Function::ExternalLinkage, "main", TheModule.get());
+  BasicBlock *BB = BasicBlock::Create(TheContext, "entry", main);
+  Builder.SetInsertPoint(BB);
+  Builder.CreateCall(main_func, {});
+  Builder.CreateRet(c32(0));
 
 	// Verify the IR.
 	bool bad = llvm::verifyModule(*TheModule, &errs());
