@@ -25,6 +25,7 @@ using llvm::errs;
 LLVMContext AST::TheContext;
 IRBuilder<> AST::Builder(TheContext);
 std::unique_ptr<Module> AST::TheModule;
+std::unique_ptr<llvm::legacy::FunctionPassManager> AST::TheFPM;
 
 Function *AST::ThePuti;
 Function *AST::ThePutb;
@@ -78,10 +79,20 @@ Value *AST::loadValue(Value *p)
 		return p;
 }
 
-void AST::llvm_compile_and_dump() {
+void AST::llvm_compile_and_dump(bool optimize) {
 	// Initialize
 	// Make the module, which holds all the code
 	TheModule = llvm::make_unique<Module>("Tony program", TheContext);
+  // Optimizations
+  TheFPM = llvm::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+  if (optimize) {
+      TheFPM->add(llvm::createPromoteMemoryToRegisterPass());
+      TheFPM->add(llvm::createInstructionCombiningPass());
+      TheFPM->add(llvm::createReassociatePass());
+      TheFPM->add(llvm::createGVNPass());
+      TheFPM->add(llvm::createCFGSimplificationPass());
+    }
+    TheFPM->doInitialization();
 
 
 	// Initialize Types
@@ -218,6 +229,9 @@ void AST::llvm_compile_and_dump() {
 		TheModule->print(errs(), nullptr);
 		std::exit(1);
 	}
+
+  // Optimize!
+  TheFPM->run(*main);
 
 	// Print out the IR.
 	TheModule->print(outs(), nullptr);

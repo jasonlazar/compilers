@@ -22,6 +22,11 @@ extern "C" {
 #include <llvm/IR/Value.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/IR/LegacyPassManager.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include <llvm/Transforms/Utils.h>
 
 // using namespace llvm;
 
@@ -35,7 +40,7 @@ class AST {
 			return nullptr;
 		};
 
-		void llvm_compile_and_dump();
+		void llvm_compile_and_dump(bool optimize=true);
 
 		static llvm::Type* translate(Type t);
 		static llvm::Value* loadValue(llvm::Value* p);
@@ -44,6 +49,7 @@ class AST {
 		static llvm::LLVMContext TheContext;
 		static llvm::IRBuilder<> Builder;
 		static std::unique_ptr<llvm::Module> TheModule;
+		static std::unique_ptr<llvm::legacy::FunctionPassManager> TheFPM;
 
 		static llvm::Function *ThePuti;
 		static llvm::Function *ThePutb;
