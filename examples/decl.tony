@@ -1,44 +1,10 @@
 def main ():
-  decl fu ()
+  int[] a, b
 
-  def bool prime? (int n):
-    int i
+  a := new int[10]
+  b := a
 
-    if n < 0: return prime?(-n)
-    elsif n < 2: return false
-    elsif n = 2: return true
-    elsif n mod 2 = 0: return false
-    else:
-      for i := 3; i <= n / 2; i := i + 2:
-        if n mod i = 0: return false end
-      end
-      return true
-    end
-  end
-
-  int limit, number, counter
-  %char[] s
-
-  puts("Limit: ")
-  limit := geti()
-  puts("Primes:\n")
-  counter := 0
-  %s := "hello"
-  %s[0] := 'e'
-  if limit >= 2: counter := counter + 1 puti(2) puts("\n") end
-  if limit >= 3: counter := counter + 1 puti(3) puts("\n") end
-  for number := 6; number <= limit; number := number + 6:
-    if prime?(number - 1):
-      counter := counter + 1
-      puti(number - 1)
-      puts("\n")
-    end
-    if number <> limit and prime?(number + 1):
-      counter := counter + 1
-      puti(number + 1)
-      puts("\n")
-    end
-  end
-
-  puts("\nTotal: ") puti(counter) puts("\n")
+  b[2] := 3
+  puti(a[2])
+  putc('\n')
 end

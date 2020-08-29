@@ -356,7 +356,9 @@ Value* Assign::compile() const {
 	Value* r = rval->compile();
 	if (rval->isString())
 		return Builder.CreateStore(r, l);
-	if (equalType(rval->getType(), typeIArray(typeAny))) {
+	else if (rval->isLval())
+		return Builder.CreateStore(loadValue(r), l);
+	else if (equalType(rval->getType(), typeIArray(typeAny))) {
 		return Builder.CreateStore(r, l);
 	}
 	return Builder.CreateStore(loadValue(r), l);
@@ -615,7 +617,7 @@ Value* BinOp::compile() const {
 }
 
 Value* New::compile() const {
-	Value* s = size->compile();
+	Value* s = loadValue(size->compile());
 	std::vector<Value*> ArgsV;
 	Value* multmp = Builder.CreateMul(s, c16(sizeOfType(ref)), "multmp");
 	ArgsV.push_back(Builder.CreateSExt(multmp, i64, "exttmp"));
