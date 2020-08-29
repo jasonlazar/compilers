@@ -11,7 +11,7 @@ def hello ():
     return b
   end
 
-  int[][] a
+  <*int[][] a
   int i, j
 
   a := new int[][5]
@@ -33,10 +33,26 @@ def hello ():
 	end
   end
 
-  <*
   for i:=0; i<=n; i:=i+1:
     skip
   end
   *>
+
+  list[int] l
+  list[char] lc
+
+  l := nil
+  l := 1 # 2 # l
+  lc := 'f' # 'u' # 'c' # 'k' # nil
+
+  putb(nil?(l))
+  puti(head(l))
+  putc('\n')
+
+  for skip; not nil?(lc); lc := tail(lc):
+    putc(head(lc))
+  end
+  putc('\n')
+
 
 end

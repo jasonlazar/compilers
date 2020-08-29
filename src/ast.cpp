@@ -9,10 +9,12 @@ using llvm::Module;
 using llvm::IntegerType;
 using llvm::PointerType;
 using llvm::ArrayType;
-using llvm::Constant;
+using llvm::StructType;
 using llvm::GlobalVariable;
 using llvm::GlobalValue;
+using llvm::Constant;
 using llvm::ConstantArray;
+using llvm::ConstantPointerNull;
 using llvm::BasicBlock;
 using llvm::AllocaInst;
 using llvm::LoadInst;
@@ -47,6 +49,7 @@ llvm::Type *AST::i8 = IntegerType::get(TheContext, 8);
 llvm::Type *AST::i16 = IntegerType::get(TheContext, 16);
 llvm::Type *AST::i32 = IntegerType::get(TheContext, 32);
 llvm::Type *AST::i64 = IntegerType::get(TheContext, 64);
+PointerType *AST::ListType;
 
 llvm::Type* AST::translate(Type t) {
 	switch(t->kind){
@@ -60,6 +63,8 @@ llvm::Type* AST::translate(Type t) {
 			return llvm::Type::getVoidTy(AST::TheContext);
 		case TYPE_IARRAY:
 			return PointerType::get(translate(t->refType), 0);
+    case TYPE_LIST:
+			return ListType;
 		default:
 			return nullptr;
 	}
@@ -79,7 +84,10 @@ void AST::llvm_compile_and_dump() {
 	TheModule = llvm::make_unique<Module>("Tony program", TheContext);
 
 
-	// Initialize global variables
+	// Initialize Types
+  StructType *NodeType = StructType::create(TheContext, "nodetype");
+  NodeType->setBody({i64, PointerType::get(NodeType, 0)});
+  ListType = PointerType::get(NodeType, 0);
 
 	// Initialize library functions
 	// stdio functions
@@ -354,14 +362,10 @@ Value* Assign::compile() const {
 
 	Value* l = lval->compile();
 	Value* r = rval->compile();
-	if (rval->isString())
-		return Builder.CreateStore(r, l);
-	else if (rval->isLval())
-		return Builder.CreateStore(loadValue(r), l);
-	else if (equalType(rval->getType(), typeIArray(typeAny))) {
-		return Builder.CreateStore(r, l);
-	}
-	return Builder.CreateStore(loadValue(r), l);
+  if (rval->isLval())
+    return Builder.CreateStore(loadValue(r), l);
+  else
+    return Builder.CreateStore(r, l);
 }
 
 Value* Call::compile() const {
@@ -398,7 +402,7 @@ Value* Return::compile() const {
 	if(Builder.GetInsertBlock()->getTerminator())
 		return nullptr;
 
-	Value* ret = loadValue(expr->compile());
+	Value* ret = (expr->isLval())? loadValue(expr->compile()) : expr->compile();
 	return Builder.CreateRet(ret);
 }
 
@@ -554,7 +558,8 @@ Value* ConstBool::compile() const {
 
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
-	V = loadValue(V);
+  if (expr->isLval())
+    V = loadValue(V);
 	switch(op) {
 		case UPLUS:
 			return V;
@@ -563,6 +568,17 @@ Value* UnOp::compile() const {
 		case NOT:
 			V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
 			return Builder.CreateZExt(V, i8, "nottmp");
+    case IS_NIL:
+      V = Builder.CreatePtrToInt(V, i64, "listptr");
+      V = Builder.CreateICmpEQ(V, c64(0), "eqtmp");
+      return Builder.CreateZExt(V, i8, "isniltmp");
+    case HEAD:
+      V = Builder.CreateGEP(V, {c32(0), c32(0)}, "headptr");
+      V = Builder.CreateLoad(V, "head");
+      return Builder.CreateTrunc(V, translate(expr->getType()->refType), "trunctmp");
+    case TAIL:
+      V = Builder.CreateGEP(V, {c32(0), c32(1)}, "tailptr");
+      return Builder.CreateLoad(V, "tail");
 		default:
 			return nullptr;
 	}
@@ -573,8 +589,10 @@ Value* BinOp::compile() const {
 	Value* l = left->compile();
 	Value* r = right->compile();
 
-	l = loadValue(l);
-	r = loadValue(r);
+  if (left->isLval())
+    l = loadValue(l);
+  if (right->isLval())
+    r = loadValue(r);
 
 	Value* V;
 
@@ -611,9 +629,17 @@ Value* BinOp::compile() const {
 			return Builder.CreateAnd(l, r, "andtmp");
 		case OR:
 			return Builder.CreateOr(l, r, "ortmp");
-		default:
-			return nullptr;
+    case CONS:
+      Value* p = Builder.CreateCall(TheMalloc, {c64(16)}, "malloctmp");
+      Value* n = Builder.CreateBitCast(p, ListType, "nodetmp");
+      Value* h = Builder.CreateGEP(n, {c32(0), c32(0)}, "headptr");
+      Value* lSExt = Builder.CreateSExt(l, i64, "ext");
+      Builder.CreateStore(lSExt, h);
+      Value* t = Builder.CreateGEP(n, {c32(0), c32(1)}, "tailptr");
+      Builder.CreateStore(r, t);
+      return n;
 	}
+  return nullptr;
 }
 
 Value* New::compile() const {
@@ -623,4 +649,9 @@ Value* New::compile() const {
 	ArgsV.push_back(Builder.CreateSExt(multmp, i64, "exttmp"));
 	Value* ptr = Builder.CreateCall(TheMalloc, ArgsV, "malloctmp");
 	return Builder.CreateBitCast(ptr, PointerType::getUnqual(translate(ref)), "bitctemp");
+}
+
+Value* Nil::compile() const {
+  Value* nil_list = ConstantPointerNull::get(ListType);
+  return nil_list;
 }

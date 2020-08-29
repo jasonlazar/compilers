@@ -68,6 +68,7 @@ class AST {
 		static llvm::Type *i16;
 		static llvm::Type *i32;
 		static llvm::Type *i64;
+		static llvm::PointerType *ListType;
 
 
 		static llvm::ConstantInt* c1(bool b) {
@@ -81,6 +82,9 @@ class AST {
 		}
 		static llvm::ConstantInt* c32(int n) {
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(32, n, true));
+		}
+		static llvm::ConstantInt* c64(int n) {
+			return llvm::ConstantInt::get(TheContext, llvm::APInt(64, n, true));
 		}
 };
 
@@ -1019,6 +1023,8 @@ class Nil : public Expr {
 		virtual void sem() override {
 			type = typeList(typeAny);
 		}
+
+		virtual llvm::Value* compile() const override;
 };
 
 typedef std::vector<std::string> Id_List;
