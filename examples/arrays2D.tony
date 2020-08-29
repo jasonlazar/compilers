@@ -1,0 +1,51 @@
+def main ():
+
+  def writeArray (char[] msg; int n; int[] x):
+    int i
+
+    puts(msg)
+    for i := 0; i < n; i := i+1:
+      if i > 0: puts(", ") end
+      puti(x[i])
+    end
+    puts("\n")
+  end
+
+  def writeArray2D (char[] msg; int n; int k; int[][] x):
+    int i, j
+    puts(msg)
+    putc('\n')
+    for i := 0; i < n; i := i+1:
+      for j := 0; j < k; j := j+1:
+        if j > 0: puts(", ") end
+        puti(x[i][j])
+      end
+      puts("\n")
+    end
+    puts("\n")
+  end
+
+  int i, j
+  int[] x
+  int[][] y
+  int n, k
+
+  n := 100
+  k := 100
+  x := new int[n]
+  y := new int[][n]
+
+  for i := 0; i < n; i := i+1:
+    x[i] := i
+    y[i] := new int [k]
+  end
+
+  for i := 0; i < n; i := i+1:
+    for j := 0; j < k; j := j+1:
+      y[i][j] := i*n+j
+    end
+  end
+
+  writeArray("Initial array: ", n, x)
+  writeArray2D("Initial array: ", n, k, y)
+end
