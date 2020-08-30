@@ -1,0 +1,16 @@
+def main():
+  int i, n, j
+  list[int] l
+
+  for i:=1; i<10000; i:=i+1:
+    puti(i)
+	putc('\n')
+	l := nil
+	for n:=1; n<10000; n:=n+1:
+	  l := n # l
+	  for j:=1; j<100; j:=j+1:
+	    l := j # l
+	  end
+	end
+  end
+end

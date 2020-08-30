@@ -593,7 +593,10 @@ Value* UnOp::compile() const {
 		case HEAD:
 			V = Builder.CreateGEP(V, {c32(0), c32(0)}, "headptr");
 			V = Builder.CreateLoad(V, "head");
-			return Builder.CreateTrunc(V, translate(expr->getType()->refType), "trunctmp");
+			if (PointerType::classof(translate(expr->getType()->refType)))
+				return Builder.CreateIntToPtr(V, translate(expr->getType()->refType), "inttoptrtmp");
+			else
+				return Builder.CreateTrunc(V, translate(expr->getType()->refType), "trunctmp");
 		case TAIL:
 			V = Builder.CreateGEP(V, {c32(0), c32(1)}, "tailptr");
 			return Builder.CreateLoad(V, "tail");
@@ -651,7 +654,11 @@ Value* BinOp::compile() const {
 			Value* p = Builder.CreateCall(TheMalloc, {c64(16)}, "malloctmp");
 			Value* n = Builder.CreateBitCast(p, ListType, "nodetmp");
 			Value* h = Builder.CreateGEP(n, {c32(0), c32(0)}, "headptr");
-			Value* lSExt = Builder.CreateSExt(l, i64, "ext");
+			Value* lSExt;
+			if (PointerType::classof(l->getType()))
+				lSExt = Builder.CreatePtrToInt(l, i64, "listptr");
+			else 
+				lSExt = Builder.CreateSExt(l, i64, "ext");
 			Builder.CreateStore(lSExt, h);
 			Value* t = Builder.CreateGEP(n, {c32(0), c32(1)}, "tailptr");
 			Builder.CreateStore(r, t);

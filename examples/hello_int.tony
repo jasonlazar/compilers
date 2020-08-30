@@ -1,58 +1,20 @@
 def hello ():
-  def printInteger(int a):
-    puti(a)
-  end
-
-  def int foo(ref int a):
-    int b
-    b := a + 8
-    return b
-    b := 3
-    return b
-  end
-
-  <*int[][] a
-  int i, j
-
-  a := new int[][5]
-
-  for i:=0; i<5; i:=i+1:
-    a[i] := new int[2]
-  end
-
-  for i:=0; i<5; i:=i+1:
-    for j:=0; j<2; j:=j+1:
-	  a[i][j] := geti()
+  def printIntList(list[int] l):
+    if nil?(l):
+	  exit
 	end
+	puti(head(l))
+	puts(", ")
+	printIntList(tail(l))
   end
 
-  for i:=0; i<5; i:=i+1:
-    for j:=0; j<2; j:=j+1:
-	  puti(a[i][j])
-	  putc('\n')
-	end
+  list[list[int]] mylist
+
+  mylist := (1 # 2 # nil) # nil
+  mylist := (3 # nil) # mylist
+
+  for skip; not nil?(mylist); mylist:=tail(mylist) :
+    printIntList(head(mylist))
+	puts("\n")
   end
-
-  for i:=0; i<=n; i:=i+1:
-    skip
-  end
-  *>
-
-  list[int] l
-  list[char] lc
-
-  l := nil
-  l := 1 # 2 # l
-  lc := 'f' # 'u' # 'c' # 'k' # nil
-
-  putb(nil?(l))
-  puti(head(l))
-  putc('\n')
-
-  for skip; not nil?(lc); lc := tail(lc):
-    putc(head(lc))
-  end
-  putc('\n')
-
-
 end
