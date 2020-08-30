@@ -37,7 +37,7 @@ $(TARGET): $(BUILDDIR)/lexer.o $(BUILDDIR)/parser.o $(BUILDDIR)/printers.o $(BUI
 
 clean:
 	$(RM) -r $(BUILDDIR)
-	$(RM) $(SRCDIR)/lexer.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/parser.hpp $(SRCDIR)/parser.output *.out *.ll *.s *.dot *.png
+	$(RM) $(SRCDIR)/lexer.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/parser.hpp $(SRCDIR)/parser.output *.out *.ll *.s
 
 distclean: clean
 	$(RM) $(TARGET)

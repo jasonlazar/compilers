@@ -9,8 +9,7 @@ tony
 *.ll
 *.s
 *.out
-*.dot
-*.png
 *.imm
+imm
 /*.asm
 /examples/*.asm
