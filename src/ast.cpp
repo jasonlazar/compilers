@@ -64,7 +64,7 @@ llvm::Type* AST::translate(Type t) {
 			return llvm::Type::getVoidTy(AST::TheContext);
 		case TYPE_IARRAY:
 			return PointerType::get(translate(t->refType), 0);
-    case TYPE_LIST:
+		case TYPE_LIST:
 			return ListType;
 		default:
 			return nullptr;
@@ -83,22 +83,22 @@ void AST::llvm_compile_and_dump(bool optimize) {
 	// Initialize
 	// Make the module, which holds all the code
 	TheModule = llvm::make_unique<Module>("Tony program", TheContext);
-  // Optimizations
-  TheFPM = llvm::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
-  if (optimize) {
-      TheFPM->add(llvm::createPromoteMemoryToRegisterPass());
-      TheFPM->add(llvm::createInstructionCombiningPass());
-      TheFPM->add(llvm::createReassociatePass());
-      TheFPM->add(llvm::createGVNPass());
-      TheFPM->add(llvm::createCFGSimplificationPass());
-    }
-    TheFPM->doInitialization();
+	// Optimizations
+	TheFPM = llvm::make_unique<llvm::legacy::FunctionPassManager>(TheModule.get());
+	if (optimize) {
+		TheFPM->add(llvm::createPromoteMemoryToRegisterPass());
+		TheFPM->add(llvm::createInstructionCombiningPass());
+		TheFPM->add(llvm::createReassociatePass());
+		TheFPM->add(llvm::createGVNPass());
+		TheFPM->add(llvm::createCFGSimplificationPass());
+	}
+	TheFPM->doInitialization();
 
 
 	// Initialize Types
-  StructType *NodeType = StructType::create(TheContext, "nodetype");
-  NodeType->setBody({i64, PointerType::get(NodeType, 0)});
-  ListType = PointerType::get(NodeType, 0);
+	StructType *NodeType = StructType::create(TheContext, "nodetype");
+	NodeType->setBody({i64, PointerType::get(NodeType, 0)});
+	ListType = PointerType::get(NodeType, 0);
 
 	// Initialize library functions
 	// stdio functions
@@ -230,8 +230,8 @@ void AST::llvm_compile_and_dump(bool optimize) {
 		std::exit(1);
 	}
 
-  // Optimize!
-  TheFPM->run(*main);
+	// Optimize!
+	TheFPM->run(*main);
 
 	// Print out the IR.
 	TheModule->print(outs(), nullptr);
@@ -315,29 +315,33 @@ Function* FunctionDef::compile() const {
 	BasicBlock* InsertBB = Builder.GetInsertBlock();
 
 	if (!InsertBB->getTerminator()) {
-		switch(header->getType()->kind){
-			// case TYPE_INTEGER:
-			//   Builder.CreateRet(c16(0));
-			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-			//   break;
-			// case TYPE_CHAR:
-			//   Builder.CreateRet(c8(0));
-			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-			//   break;
-			// case TYPE_BOOLEAN:
-			//   Builder.CreateRet(c8(0));
-			//   // error("In function %s, control may reach end of non-void function", header->getName().c_str());
-			//   break;
-			case TYPE_VOID:
-				Builder.CreateRetVoid();
-				break;
-			default:
-				// Builder.CreateRet(llvm::Constant::getNullValue(translate(header->getType()->refType)));
-				/* May not be required?? */
-				warning("In function %s, control may reach end of non-void function", header->getName().c_str());
-				if (!InsertBB->getFirstNonPHI()) {
-					InsertBB->eraseFromParent();
+		if(header->getType()->kind == TYPE_VOID)
+			Builder.CreateRetVoid();
+		else {		
+			warning("In function %s, control may reach end of non-void function", header->getName().c_str());
+			if (!InsertBB->getFirstNonPHI() && (pred_begin(InsertBB) == pred_end(InsertBB)))
+				InsertBB->eraseFromParent();
+			else {
+				switch(header->getType()->kind) {
+					case TYPE_INTEGER:
+						Builder.CreateRet(c16(0));
+						break;
+					case TYPE_CHAR:
+						Builder.CreateRet(c8(0));
+						break;
+					case TYPE_BOOLEAN:
+						Builder.CreateRet(c8(0));
+						break;
+					case TYPE_IARRAY:
+						Builder.CreateRet(Constant::getNullValue(translate(header->getType()->refType)));
+						break;
+					case TYPE_LIST:
+						Builder.CreateRet(ConstantPointerNull::get(ListType));
+						break;
+					default:
+						;
 				}
+			}
 		}
 	}
 
@@ -376,10 +380,10 @@ Value* Assign::compile() const {
 
 	Value* l = lval->compile();
 	Value* r = rval->compile();
-  if (rval->isLval())
-    return Builder.CreateStore(loadValue(r), l);
-  else
-    return Builder.CreateStore(r, l);
+	if (rval->isLval())
+		return Builder.CreateStore(loadValue(r), l);
+	else
+		return Builder.CreateStore(r, l);
 }
 
 Value* Call::compile() const {
@@ -572,8 +576,8 @@ Value* ConstBool::compile() const {
 
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
-  if (expr->isLval())
-    V = loadValue(V);
+	if (expr->isLval())
+		V = loadValue(V);
 	switch(op) {
 		case UPLUS:
 			return V;
@@ -582,17 +586,17 @@ Value* UnOp::compile() const {
 		case NOT:
 			V = Builder.CreateICmpEQ(V, c8(0), "eqtmp");
 			return Builder.CreateZExt(V, i8, "nottmp");
-    case IS_NIL:
-      V = Builder.CreatePtrToInt(V, i64, "listptr");
-      V = Builder.CreateICmpEQ(V, c64(0), "eqtmp");
-      return Builder.CreateZExt(V, i8, "isniltmp");
-    case HEAD:
-      V = Builder.CreateGEP(V, {c32(0), c32(0)}, "headptr");
-      V = Builder.CreateLoad(V, "head");
-      return Builder.CreateTrunc(V, translate(expr->getType()->refType), "trunctmp");
-    case TAIL:
-      V = Builder.CreateGEP(V, {c32(0), c32(1)}, "tailptr");
-      return Builder.CreateLoad(V, "tail");
+		case IS_NIL:
+			V = Builder.CreatePtrToInt(V, i64, "listptr");
+			V = Builder.CreateICmpEQ(V, c64(0), "eqtmp");
+			return Builder.CreateZExt(V, i8, "isniltmp");
+		case HEAD:
+			V = Builder.CreateGEP(V, {c32(0), c32(0)}, "headptr");
+			V = Builder.CreateLoad(V, "head");
+			return Builder.CreateTrunc(V, translate(expr->getType()->refType), "trunctmp");
+		case TAIL:
+			V = Builder.CreateGEP(V, {c32(0), c32(1)}, "tailptr");
+			return Builder.CreateLoad(V, "tail");
 		default:
 			return nullptr;
 	}
@@ -603,10 +607,10 @@ Value* BinOp::compile() const {
 	Value* l = left->compile();
 	Value* r = right->compile();
 
-  if (left->isLval())
-    l = loadValue(l);
-  if (right->isLval())
-    r = loadValue(r);
+	if (left->isLval())
+		l = loadValue(l);
+	if (right->isLval())
+		r = loadValue(r);
 
 	Value* V;
 
@@ -643,17 +647,17 @@ Value* BinOp::compile() const {
 			return Builder.CreateAnd(l, r, "andtmp");
 		case OR:
 			return Builder.CreateOr(l, r, "ortmp");
-    case CONS:
-      Value* p = Builder.CreateCall(TheMalloc, {c64(16)}, "malloctmp");
-      Value* n = Builder.CreateBitCast(p, ListType, "nodetmp");
-      Value* h = Builder.CreateGEP(n, {c32(0), c32(0)}, "headptr");
-      Value* lSExt = Builder.CreateSExt(l, i64, "ext");
-      Builder.CreateStore(lSExt, h);
-      Value* t = Builder.CreateGEP(n, {c32(0), c32(1)}, "tailptr");
-      Builder.CreateStore(r, t);
-      return n;
+		case CONS:
+			Value* p = Builder.CreateCall(TheMalloc, {c64(16)}, "malloctmp");
+			Value* n = Builder.CreateBitCast(p, ListType, "nodetmp");
+			Value* h = Builder.CreateGEP(n, {c32(0), c32(0)}, "headptr");
+			Value* lSExt = Builder.CreateSExt(l, i64, "ext");
+			Builder.CreateStore(lSExt, h);
+			Value* t = Builder.CreateGEP(n, {c32(0), c32(1)}, "tailptr");
+			Builder.CreateStore(r, t);
+			return n;
 	}
-  return nullptr;
+	return nullptr;
 }
 
 Value* New::compile() const {
@@ -666,6 +670,6 @@ Value* New::compile() const {
 }
 
 Value* Nil::compile() const {
-  Value* nil_list = ConstantPointerNull::get(ListType);
-  return nil_list;
+	Value* nil_list = ConstantPointerNull::get(ListType);
+	return nil_list;
 }
