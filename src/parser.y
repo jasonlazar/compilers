@@ -7,6 +7,7 @@ extern "C"{
 
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 
 #include "lexer.hpp"
 #include "ast.hpp"
@@ -148,6 +149,10 @@ program:
 		size_t last = filename.rfind('.');
 		filename.replace(last+1, filename.length()-last-1, "imm"); 
 		AST::printIR(filename);
+		std::string ir_file = filename;
+		std::string as_file = filename.replace(last+1, filename.length()-last-1, "asm"); 
+		std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
+		system(command.c_str());
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
