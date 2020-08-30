@@ -11,3 +11,6 @@ tony
 *.out
 *.dot
 *.png
+*.imm
+/*.asm
+/examples/*.asm

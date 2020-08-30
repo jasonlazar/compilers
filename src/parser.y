@@ -6,12 +6,16 @@ extern "C"{
 }
 
 #include <iostream>
+#include <fstream>
 
 #include "lexer.hpp"
 #include "ast.hpp"
 #include "library.hpp"
 
+extern FILE* yyin;
+
 int linecount=1;
+std::string filename;
 %}
 
 %define parse.error verbose
@@ -141,6 +145,9 @@ program:
 		$1->llvm_compile_and_dump();
 		closeScope();
 		destroySymbolTable();
+		size_t last = filename.rfind('.');
+		filename.replace(last+1, filename.length()-last-1, "imm"); 
+		AST::printIR(filename);
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
@@ -282,7 +289,13 @@ expr:
 
 %%
 
-int main() {
+int main(int argc, char** argv) {
+	if (argc == 1)
+		yyin = stdin;
+	else {
+		yyin = fopen(argv[1], "r");
+		filename = std::string(argv[1]);
+	}
 	int result = yyparse();
 // 	if (result == 0) std::cout << "Success.\n";
 	return result;

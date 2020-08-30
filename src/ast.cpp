@@ -234,7 +234,7 @@ void AST::llvm_compile_and_dump(bool optimize) {
 	TheFPM->run(*main);
 
 	// Print out the IR.
-	TheModule->print(outs(), nullptr);
+	// TheModule->print(outs(), nullptr);
 
 }
 

@@ -44,6 +44,12 @@ class AST {
 
 		static llvm::Type* translate(Type t);
 		static llvm::Value* loadValue(llvm::Value* p);
+		static void printIR(std::string& outfile) {
+			llvm::raw_ostream *out;
+			std::error_code EC;
+			out = new llvm::raw_fd_ostream(outfile, EC);
+			TheModule->print(*out, nullptr);
+		}
 
 	protected:
 		static llvm::LLVMContext TheContext;
