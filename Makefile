@@ -40,4 +40,4 @@ clean:
 	$(RM) $(SRCDIR)/lexer.cpp $(SRCDIR)/parser.cpp $(SRCDIR)/parser.hpp $(SRCDIR)/parser.output *.out *.ll *.s *.dot *.png
 
 distclean: clean
-	$(RM) tony
+	$(RM) $(TARGET)
