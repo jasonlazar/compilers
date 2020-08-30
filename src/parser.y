@@ -8,6 +8,7 @@ extern "C"{
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <unistd.h>
 
 #include "lexer.hpp"
 #include "ast.hpp"
@@ -15,6 +16,7 @@ extern "C"{
 
 extern FILE* yyin;
 
+bool o_flag, i_flag, f_flag;
 int linecount=1;
 std::string filename;
 %}
@@ -143,16 +145,30 @@ program:
 		closeScope();
 		openScope();
 		Library::load_library_functions();
-		$1->llvm_compile_and_dump();
+		$1->llvm_compile_and_dump(o_flag);
 		closeScope();
 		destroySymbolTable();
 		size_t last = filename.rfind('.');
-		filename.replace(last+1, filename.length()-last-1, "imm"); 
-		AST::printIR(filename);
 		std::string ir_file = filename;
-		std::string as_file = filename.replace(last+1, filename.length()-last-1, "asm"); 
-		std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
-		system(command.c_str());
+		if (i_flag)
+			ir_file = "-";
+		else if (f_flag)
+			ir_file = "tmp.imm";
+		else
+			ir_file.replace(last+1, filename.length()-last-1, "imm"); 
+		AST::printIR(ir_file);
+		if (!i_flag) {
+			std::string as_file = filename;
+			if (f_flag)
+				as_file = "tmp.asm";
+			else
+				as_file.replace(last+1, filename.length()-last-1, "asm"); 
+			std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
+			system(command.c_str());
+			if (f_flag)
+				system("cat tmp.asm");
+		}
+		system("rm -f tmp.imm tmp.asm");
 //		std::cout << "AST: " << *$1 << std::endl;
 	}
 ;
@@ -295,11 +311,28 @@ expr:
 %%
 
 int main(int argc, char** argv) {
-	if (argc == 1)
+	int opt;
+	o_flag = f_flag = i_flag = false;
+	while ((opt = getopt(argc, argv, "Ofi")) != -1) {
+		switch(opt) {
+			case 'O':
+				o_flag = true;
+				break;
+			case 'f':
+				f_flag = true;
+				break;
+			case 'i':
+				i_flag = true;
+				break;
+			default:
+				break;
+		}
+	}
+	if (i_flag || f_flag)
 		yyin = stdin;
 	else {
-		yyin = fopen(argv[1], "r");
-		filename = std::string(argv[1]);
+		yyin = fopen(argv[optind], "r");
+		filename = std::string(argv[optind]);
 	}
 	int result = yyparse();
 // 	if (result == 0) std::cout << "Success.\n";

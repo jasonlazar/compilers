@@ -28,8 +28,6 @@ extern "C" {
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
 
-// using namespace llvm;
-
 
 class AST {
 	public:
