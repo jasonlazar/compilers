@@ -12,4 +12,5 @@ tony
 *.imm
 imm
 /*.asm
-/examples/*.asm
+/examples/*
+!/examples/*.tony

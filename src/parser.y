@@ -8,6 +8,7 @@ extern "C"{
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <cstdio>
 #include <unistd.h>
 
 #include "lexer.hpp"
@@ -143,33 +144,57 @@ program:
 		Library::load_library_functions();
 		$1->sem();
 		closeScope();
+//		std::cout << "AST: " << *$1 << std::endl;
 		openScope();
 		Library::load_library_functions();
 		$1->llvm_compile_and_dump(o_flag);
 		closeScope();
 		destroySymbolTable();
 		size_t last = filename.rfind('.');
+
+		// Generate IR code
 		std::string ir_file = filename;
-		if (i_flag)
-			ir_file = "-";
-		else if (f_flag)
+		if (i_flag || f_flag)
 			ir_file = "tmp.imm";
 		else
 			ir_file.replace(last+1, filename.length()-last-1, "imm"); 
 		AST::printIR(ir_file);
-		if (!i_flag) {
-			std::string as_file = filename;
-			if (f_flag)
-				as_file = "tmp.asm";
-			else
-				as_file.replace(last+1, filename.length()-last-1, "asm"); 
-			std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
-			system(command.c_str());
-			if (f_flag)
-				system("cat tmp.asm");
+		if (i_flag) {
+			std::ifstream f("tmp.imm");
+			if (f.is_open())
+				std::cout << f.rdbuf();
+			f.close();
 		}
-		system("rm -f tmp.imm tmp.asm");
-//		std::cout << "AST: " << *$1 << std::endl;
+
+		// Generate Assembly
+		std::string as_file = filename;
+		if (f_flag || i_flag)
+			as_file = "tmp.asm";
+		else
+			as_file.replace(last+1, filename.length()-last-1, "asm"); 
+		std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
+		system(command.c_str());
+		if (f_flag) {
+			std::ifstream f("tmp.asm");
+			if (f.is_open())
+				std::cout << f.rdbuf();
+			f.close();
+		}
+
+		// Generate binary
+		std::string bin_file = filename;
+		if (i_flag || f_flag)
+			bin_file = "a.out";
+		else if (last == std::string::npos)
+			bin_file.append(".out");
+		else
+			bin_file.erase(last);
+		command = "clang -o " + bin_file + " " + as_file + " libs/edsger_lib-master/lib.a -lgc";
+		system(command.c_str());
+
+		// Remove tmp files
+		remove("tmp.imm");
+		remove("tmp.asm");
 	}
 ;
 
