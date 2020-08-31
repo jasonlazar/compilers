@@ -337,6 +337,17 @@ expr:
 
 int main(int argc, char** argv) {
 	int opt;
+	if (argc == 1) {
+		std::cerr <<
+			"Usage: tony [options] [FILE]\n"
+			"Options:\n"
+			"-O: allow optimizations\n"
+			"-i: the input must be given on standard input and the intermediate code will be printed on standard output\n"
+			"-f: the input must be given on standard input and the final code will be printed on standard output\n"
+			"\n"
+			"If no -i or -f options are selected the input file must be given as an argument\n";
+		exit(1);
+	}
 	o_flag = f_flag = i_flag = false;
 	while ((opt = getopt(argc, argv, "Ofi")) != -1) {
 		switch(opt) {
@@ -349,6 +360,9 @@ int main(int argc, char** argv) {
 			case 'i':
 				i_flag = true;
 				break;
+			case '?':
+				std::cerr << "Enter ./tony to see usage information\n";
+				exit(1);
 			default:
 				break;
 		}
