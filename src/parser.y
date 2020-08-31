@@ -150,6 +150,7 @@ program:
 		$1->llvm_compile_and_dump(o_flag);
 		closeScope();
 		destroySymbolTable();
+
 		size_t last = filename.rfind('.');
 
 		// Generate IR code
@@ -172,7 +173,7 @@ program:
 			as_file = "tmp.asm";
 		else
 			as_file.replace(last+1, filename.length()-last-1, "asm"); 
-		std::string command = "llc -filetype=asm -o " + as_file + " " + ir_file;
+		std::string command = "llc-9 -filetype=asm -o " + as_file + " " + ir_file;
 		system(command.c_str());
 		if (f_flag) {
 			std::ifstream f("tmp.asm");
@@ -189,7 +190,7 @@ program:
 			bin_file.append(".out");
 		else
 			bin_file.erase(last);
-		command = "clang -o " + bin_file + " " + as_file + " libs/edsger_lib-master/lib.a -lgc";
+		command = "clang-9 -o " + bin_file + " " + as_file + " libs/edsger_lib-master/lib.a -lgc";
 		system(command.c_str());
 
 		// Remove tmp files
