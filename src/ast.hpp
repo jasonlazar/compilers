@@ -190,29 +190,7 @@ class Header : public AST {
 			out << "))";
 		}
 
-		virtual void sem() override {
-			SymbolEntry* func = newFunction(id.c_str());
-			if (!is_def)
-				forwardFunction(func);
-			openScope();
-			currentScope->returnType = type;
-			for (Formal* f : formal_list) {
-				for (std::string id : f->getIdList()) {
-					PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-					newParameter(id.c_str(), f->getType(), passmode, func);
-				}
-			}
-
-			endFunctionHeader(func, type);
-
-			if (is_main) {
-				if (type->kind != TYPE_VOID) fatal("Main function %s shouldn't have return type", id.c_str());
-				if (formal_list.size() != 0) fatal("Main function %s shouldn't take any arguments",  id.c_str());
-			}
-
-			// std::cout << (func->u.eFunction.isForward ? "Forward Function: " : "Function: " ) << func->id << std::endl;
-
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Function* compile() const override;
 
@@ -272,19 +250,7 @@ class FunctionDef : public Decl {
 			out << ")";
 		}
 
-		virtual void sem() override {
-			header->sem();
-			for (Decl *d : decl_list) {
-				d->sem();
-			}
-			for (Stmt *s : stmt_list) {
-				s->sem();
-			}
-
-			//		printSymbolTable();
-
-			closeScope();
-		}
+		virtual void sem() override;
 
 		virtual llvm::Function* compile() const override;
 
@@ -312,14 +278,7 @@ class FunctionDecl : public Decl {
 			out << "FunctionDecl(" << header << ")";
 		}
 
-		virtual void sem() override {
-			header->unset_def();
-			header->sem();
-
-			// printSymbolTable();
-
-			closeScope();
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Function* compile() const override;
 
@@ -345,11 +304,7 @@ class VarDef : public Decl {
 			out << "))";
 		}
 
-		virtual void sem() override {
-			for (std::string id : id_list) {
-				newVariable(id.c_str(), type);
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -385,27 +340,7 @@ class Assign : public Simple {
 			out << "Assign(" << *lval << ", " << *rval << ")";
 		}
 
-		virtual void sem() override {
-			if (!lval->isLval()) {
-				std::stringstream atom;
-				atom << *lval << " is not assignable (not an L-value)";
-				fatal(atom.str().c_str());
-			}
-			lval->sem();
-			if (lval->isCharOfString()) {
-				std::stringstream atom;
-				atom << *lval << " is a char of const string and can't be assigned";
-				fatal(atom.str().c_str());
-			}
-			rval->sem();
-			if (!equalType(lval->getType(), rval->getType()))
-			{
-				std::stringstream atom;
-				atom << "In assignment " << *lval << ":=" << *rval << ":\n";
-				atom << "left is of type: " << lval->getType() << " and right is of type: " << rval->getType();
-				fatal(atom.str().c_str());
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -438,49 +373,7 @@ class Call : public Simple, public Atom {
 			out << "))";
 		}
 
-		virtual void sem() override {
-			SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
-			if (e->entryType != ENTRY_FUNCTION) {
-				fatal("%s is not a Function", name.c_str());
-			}
-			SymbolEntry* args = e->u.eFunction.firstArgument;
-			std::vector<Expr*>::iterator itr = parameters.begin();
-			while (args != NULL) {
-				if (itr == parameters.end())
-					fatal("%s Function needs more parameters", name.c_str());
-
-				(*itr)->sem();
-				if (!equalType((*itr)->getType(), args->u.eParameter.type)) {
-					std::stringstream expr;
-					expr << "In Function call of %s: " << *(*itr) << " is of type:" << (*itr)->getType()
-						<< " and expected type:" << args->u.eParameter.type;
-					fatal(expr.str().c_str(), name.c_str());
-				}
-
-				if (args->u.eParameter.mode == PASS_BY_REFERENCE && !(*itr)->isLval()) {
-					std::stringstream expr;
-					expr << "In Function call of %s expected L-value, got " << *(*itr) << " instead";
-					fatal(expr.str().c_str(), name.c_str());
-				}
-
-				args = args->u.eParameter.next;
-				itr++;
-			}
-
-			if (itr != parameters.end())
-				fatal("%s Function call has more parameters", name.c_str());
-
-			if (isStmt && !equalType(e->u.eFunction.resultType, typeVoid)) {
-				fatal("%s Function call is used as a statement but function is not void", name.c_str());
-			}
-			else if (!isStmt) {
-				if (equalType(e->u.eFunction.resultType, typeVoid))
-					fatal("%s Function call is used as an expression but function is void", name.c_str());
-				type = e->u.eFunction.resultType;
-			}
-
-
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -496,10 +389,7 @@ class Exit : public Stmt {
 			out << "Exit";
 		}
 
-		virtual void sem() override {
-			if (!equalType(currentScope->returnType, typeVoid))
-				fatal("Exit statement in non Void Function");
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 };
@@ -512,14 +402,7 @@ class Return : public Stmt {
 			out << "Return(" << *expr << ")";
 		}
 
-		virtual void sem() override {
-			expr->sem();
-			if (!equalType(currentScope->returnType, expr->getType())) {
-				std::stringstream expr;
-				expr << "Return statement: " << *this << " must return type " << currentScope->returnType;
-				fatal(expr.str().c_str());
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -548,17 +431,7 @@ class Elsif : public Stmt {
 			out << "))";
 		}
 
-		virtual void sem() override {
-			cond->sem();
-			if (!equalType(cond->getType(), typeBoolean)) {
-				std::stringstream expr;
-				expr << "In statement: " << *this << ", condition: " << *cond
-					<< " must be Boolean";
-				fatal(expr.str().c_str());
-			}
-			for (Stmt* st : stmt_list)
-				st->sem();
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -606,21 +479,7 @@ class If : public Stmt {
 			out << ")";
 		}
 
-		virtual void sem() override {
-			cond->sem();
-			if (!equalType(cond->getType(), typeBoolean)) {
-				std::stringstream expr;
-				expr << "In statement: " << *this << ", condition: " << *cond
-					<< " must be Boolean";
-				fatal(expr.str().c_str());
-			}
-			for (Stmt* st : statements)
-				st->sem();
-			for (Elsif* e : elsif_list)
-				e->sem();
-			for (Stmt *st : else_statements)
-				st->sem();
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -668,23 +527,7 @@ class For : public Stmt {
 			out << "))";
 		}
 
-		virtual void sem() override {
-			for (Simple* s : init)
-				s->sem();
-
-			cond->sem();
-			if (!equalType(cond->getType(), typeBoolean)) {
-				std::stringstream expr;
-				expr << "In statement: " << *this << ", condition: " << *cond
-					<< " must be Boolean";
-				fatal(expr.str().c_str());
-			}
-			for (Simple* s : after)
-				s->sem();
-
-			for (Stmt* st : stmt_list)
-				st->sem();
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -707,19 +550,7 @@ class Id : public Atom {
 			return true;
 		}
 
-		virtual void sem() override {
-			SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
-			switch (e->entryType) {
-				case ENTRY_VARIABLE:
-					type = e->u.eVariable.type;
-					break;
-				case ENTRY_PARAMETER:
-					type = e->u.eParameter.type;
-					break;
-				default:
-					fatal("%s is not a Variable or a Parameter", id.c_str());
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -738,9 +569,7 @@ class ConstString : public Atom {
 			out << "\")";
 		}
 
-		virtual void sem() override {
-			type = typeIArray(typeChar);
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -766,16 +595,7 @@ class ArrayItem : public Atom {
 			out << "ArrayItem(" << *array << ", " << *pos << ")";
 		}
 
-		virtual void sem() override {
-			array->sem();
-			Type t = array->getType();
-			if (t->kind != TYPE_IARRAY) {
-				std::stringstream atom;
-				atom << *array << " is not an Array";
-				fatal(atom.str().c_str());
-			}
-			type = t->refType;
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -800,9 +620,7 @@ class ConstInt : public Expr {
 			out << "ConstInt(" << num << ")";
 		}
 
-		virtual void sem() override {
-			type = typeInteger;
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -820,9 +638,7 @@ class ConstChar : public Expr {
 			out << "\')";
 		}
 
-		virtual void sem() override {
-			type = typeChar;
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -840,9 +656,7 @@ class ConstBool : public Expr {
 			out << (boolean ? "true" : "false") << ")";
 		}
 
-		virtual void sem() override {
-			type = typeBoolean;
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -859,57 +673,7 @@ class UnOp : public Expr {
 			out << "UnOp(" << op << "(" << *expr << "))";
 		}
 
-		virtual void sem() override {
-			expr->sem();
-
-			switch (op) {
-				case UPLUS:
-				case UMINUS:
-					if (!equalType(expr->getType(), typeInteger)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression:" << *this << ", " << *expr << " is not Integer";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeInteger;
-					break;
-				case NOT:
-					if (!equalType(expr->getType(), typeBoolean)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *expr << " is not Boolean";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeBoolean;
-					break;
-				case IS_NIL:
-					if (!equalType(expr->getType(), typeList(typeAny))) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeBoolean;
-					break;
-				case HEAD:
-					if (!equalType(expr->getType(), typeList(typeAny))) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
-						fatal(expr_stream.str().c_str());
-					}
-					type = expr->getType()->refType;
-					if (type->kind == TYPE_ANY)
-						fatal("You cannot get the head of nil");
-					break;
-				case TAIL:
-					if (!equalType(expr->getType(), typeList(typeAny))) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeList(expr->getType()->refType);
-					if (type->refType->kind == TYPE_ANY)
-						fatal("You cannot get the tail of nil");
-					break;
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -928,69 +692,7 @@ class BinOp : public Expr {
 			out << *left << ", " << *right << "))";
 		}
 
-		virtual void sem() override {
-			left->sem();
-			right->sem();
-
-			switch(op) {
-				case PLUS:
-				case MINUS:
-				case TIMES:
-				case DIV:
-				case MOD:
-					if (!equalType(left->getType(), typeInteger)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *left << " is not an Integer";
-						fatal(expr_stream.str().c_str());
-					}
-					if (!equalType(right->getType(), typeInteger)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *right << " is not an Integer";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeInteger;
-					break;
-				case EQ:
-				case NEQ:
-				case GREATER:
-				case LESS:
-				case GEQ:
-				case LEQ:
-					if (!equalType(left->getType(), right->getType())) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
-						fatal(expr_stream.str().c_str());
-					}
-					if (equalType(left->getType(), typeIArray(typeAny)))
-						fatal("You cannot compare arrays");
-					else if (equalType(left->getType(), typeList(typeAny)))
-						fatal("You cannot compare lists");
-					type = typeBoolean;
-					break;
-				case AND:
-				case OR:
-					if (!equalType(right->getType(), typeBoolean)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *right << " is not a Boolean";
-						fatal(expr_stream.str().c_str());
-					}
-					if (!equalType(left->getType(), typeBoolean)) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *left << " is not a Boolean";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeBoolean;
-					break;
-				case CONS:
-					if (!equalType(right->getType(), typeList(left->getType()))) {
-						std::stringstream expr_stream;
-						expr_stream << "In expression: " << *this << ", " << *right << " is not of type " << left->getType() << " List";
-						fatal(expr_stream.str().c_str());
-					}
-					type = typeList(left->getType());
-					break;
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -1009,13 +711,7 @@ class New : public Expr {
 			out << "New(" << type << ", " << *size << ")";
 		}
 
-		virtual void sem() override {
-			type = typeIArray(ref);
-			size->sem();
-			if (!equalType(size->getType(), typeInteger)) {
-				fatal("Integer size expected for new operator");
-			}
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 
@@ -1030,9 +726,7 @@ class Nil : public Expr {
 			out << "Nil";
 		}
 
-		virtual void sem() override {
-			type = typeList(typeAny);
-		}
+		virtual void sem() override; 
 
 		virtual llvm::Value* compile() const override;
 };

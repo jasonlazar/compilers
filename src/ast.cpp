@@ -238,6 +238,27 @@ void AST::llvm_compile_and_dump(bool optimize) {
 
 }
 
+void Header::sem() {
+	SymbolEntry* func = newFunction(id.c_str());
+	if (!is_def)
+		forwardFunction(func);
+	openScope();
+	currentScope->returnType = type;
+	for (Formal* f : formal_list) {
+		for (std::string id : f->getIdList()) {
+			PassMode passmode = f->getRef() ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+			newParameter(id.c_str(), f->getType(), passmode, func);
+		}
+	}
+
+	endFunctionHeader(func, type);
+
+	if (is_main) {
+		if (type->kind != TYPE_VOID) fatal("Main function %s shouldn't have return type", id.c_str());
+		if (formal_list.size() != 0) fatal("Main function %s shouldn't take any arguments",  id.c_str());
+	}
+}
+
 Function* Header::compile() const {
 	SymbolEntry* func = newFunction(id.c_str());
 	if (!is_def)
@@ -277,6 +298,20 @@ Function* Header::compile() const {
 		}
 	}
 	return TheFunction;
+}
+
+void FunctionDef::sem() {
+	header->sem();
+	for (Decl *d : decl_list) {
+		d->sem();
+	}
+	for (Stmt *s : stmt_list) {
+		s->sem();
+	}
+
+	//		printSymbolTable();
+
+	closeScope();
 }
 
 Function* FunctionDef::compile() const {
@@ -350,6 +385,15 @@ Function* FunctionDef::compile() const {
 	return TheFunction;
 }
 
+void FunctionDecl::sem() {
+	header->unset_def();
+	header->sem();
+
+	// printSymbolTable();
+
+	closeScope();
+}
+
 Function* FunctionDecl::compile() const {
 	Function* TheFunction = header->compile();
 
@@ -358,6 +402,12 @@ Function* FunctionDecl::compile() const {
 		return nullptr;
 
 	return TheFunction;
+}
+
+void VarDef::sem() {
+	for (std::string id : id_list) {
+		newVariable(id.c_str(), type);
+	}
 }
 
 Value* VarDef::compile() const {
@@ -373,6 +423,27 @@ Value* Skip::compile() const {
 	return nullptr;
 }
 
+void Assign::sem() {
+	if (!lval->isLval()) {
+		std::stringstream atom;
+		atom << *lval << " is not assignable (not an L-value)";
+		fatal(atom.str().c_str());
+	}
+	lval->sem();
+	if (lval->isCharOfString()) {
+		std::stringstream atom;
+		atom << *lval << " is a char of const string and can't be assigned";
+		fatal(atom.str().c_str());
+	}
+	rval->sem();
+	if (!equalType(lval->getType(), rval->getType()))
+	{
+		std::stringstream atom;
+		atom << "In assignment " << *lval << ":=" << *rval << ":\n";
+		atom << "left is of type: " << lval->getType() << " and right is of type: " << rval->getType();
+		fatal(atom.str().c_str());
+	}
+}
 
 Value* Assign::compile() const {
 	if(Builder.GetInsertBlock()->getTerminator())
@@ -384,6 +455,50 @@ Value* Assign::compile() const {
 		return Builder.CreateStore(loadValue(r), l);
 	else
 		return Builder.CreateStore(r, l);
+}
+
+void Call::sem() {
+	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	if (e->entryType != ENTRY_FUNCTION) {
+		fatal("%s is not a Function", name.c_str());
+	}
+	SymbolEntry* args = e->u.eFunction.firstArgument;
+	std::vector<Expr*>::iterator itr = parameters.begin();
+	while (args != NULL) {
+		if (itr == parameters.end())
+			fatal("%s Function needs more parameters", name.c_str());
+
+		(*itr)->sem();
+		if (!equalType((*itr)->getType(), args->u.eParameter.type)) {
+			std::stringstream expr;
+			expr << "In Function call of %s: " << *(*itr) << " is of type:" << (*itr)->getType()
+				<< " and expected type:" << args->u.eParameter.type;
+			fatal(expr.str().c_str(), name.c_str());
+		}
+
+		if (args->u.eParameter.mode == PASS_BY_REFERENCE && !(*itr)->isLval()) {
+			std::stringstream expr;
+			expr << "In Function call of %s expected L-value, got " << *(*itr) << " instead";
+			fatal(expr.str().c_str(), name.c_str());
+		}
+
+		args = args->u.eParameter.next;
+		itr++;
+	}
+
+	if (itr != parameters.end())
+		fatal("%s Function call has more parameters", name.c_str());
+
+	if (isStmt && !equalType(e->u.eFunction.resultType, typeVoid)) {
+		fatal("%s Function call is used as a statement but function is not void", name.c_str());
+	}
+	else if (!isStmt) {
+		if (equalType(e->u.eFunction.resultType, typeVoid))
+			fatal("%s Function call is used as an expression but function is void", name.c_str());
+		type = e->u.eFunction.resultType;
+	}
+
+
 }
 
 Value* Call::compile() const {
@@ -416,6 +531,27 @@ Value* Call::compile() const {
 	return Builder.CreateCall(CalleeF, ArgsV);
 }
 
+void Exit::sem() {
+	if (!equalType(currentScope->returnType, typeVoid))
+		fatal("Exit statement in non Void Function");
+}
+
+Value* Exit::compile() const {
+	if(Builder.GetInsertBlock()->getTerminator())
+		return nullptr;
+
+	return Builder.CreateRetVoid();
+}
+
+void Return::sem() {
+	expr->sem();
+	if (!equalType(currentScope->returnType, expr->getType())) {
+		std::stringstream expr;
+		expr << "Return statement: " << *this << " must return type " << currentScope->returnType;
+		fatal(expr.str().c_str());
+	}
+}
+
 Value* Return::compile() const {
 	if(Builder.GetInsertBlock()->getTerminator())
 		return nullptr;
@@ -424,11 +560,16 @@ Value* Return::compile() const {
 	return Builder.CreateRet(ret);
 }
 
-Value* Exit::compile() const {
-	if(Builder.GetInsertBlock()->getTerminator())
-		return nullptr;
-
-	return Builder.CreateRetVoid();
+void Elsif::sem() {
+	cond->sem();
+	if (!equalType(cond->getType(), typeBoolean)) {
+		std::stringstream expr;
+		expr << "In statement: " << *this << ", condition: " << *cond
+			<< " must be Boolean";
+		fatal(expr.str().c_str());
+	}
+	for (Stmt* st : stmt_list)
+		st->sem();
 }
 
 Value* Elsif::compile() const {
@@ -439,6 +580,22 @@ Value* Elsif::compile() const {
 		st->compile();
 
 	return nullptr;
+}
+
+void If::sem() {
+	cond->sem();
+	if (!equalType(cond->getType(), typeBoolean)) {
+		std::stringstream expr;
+		expr << "In statement: " << *this << ", condition: " << *cond
+			<< " must be Boolean";
+		fatal(expr.str().c_str());
+	}
+	for (Stmt* st : statements)
+		st->sem();
+	for (Elsif* e : elsif_list)
+		e->sem();
+	for (Stmt *st : else_statements)
+		st->sem();
 }
 
 Value* If::compile() const {
@@ -496,6 +653,24 @@ Value* If::compile() const {
 	return nullptr;
 }
 
+void For::sem() {
+	for (Simple* s : init)
+		s->sem();
+
+	cond->sem();
+	if (!equalType(cond->getType(), typeBoolean)) {
+		std::stringstream expr;
+		expr << "In statement: " << *this << ", condition: " << *cond
+			<< " must be Boolean";
+		fatal(expr.str().c_str());
+	}
+	for (Simple* s : after)
+		s->sem();
+
+	for (Stmt* st : stmt_list)
+		st->sem();
+}
+
 Value* For::compile() const {
 	if(Builder.GetInsertBlock()->getTerminator())
 		return nullptr;
@@ -531,6 +706,20 @@ Value* For::compile() const {
 	return nullptr;
 }
 
+void Id::sem() {
+	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+	switch (e->entryType) {
+		case ENTRY_VARIABLE:
+			type = e->u.eVariable.type;
+			break;
+		case ENTRY_PARAMETER:
+			type = e->u.eParameter.type;
+			break;
+		default:
+			fatal("%s is not a Variable or a Parameter", id.c_str());
+	}
+}
+
 Value* Id::compile() const {
 	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 
@@ -538,6 +727,10 @@ Value* Id::compile() const {
 		return loadValue((AllocaInst*) e->alloca);
 
 	return (AllocaInst *) e->alloca;
+}
+
+void ConstString::sem() {
+	type = typeIArray(typeChar);
 }
 
 Value* ConstString::compile() const {
@@ -554,6 +747,17 @@ Value* ConstString::compile() const {
 	return GetElementPtrInst::CreateInBounds(string_type, TheString, {c32(0), c32(0)}, "str_ptr", Builder.GetInsertBlock());
 }
 
+void ArrayItem::sem() {
+	array->sem();
+	Type t = array->getType();
+	if (t->kind != TYPE_IARRAY) {
+		std::stringstream atom;
+		atom << *array << " is not an Array";
+		fatal(atom.str().c_str());
+	}
+	type = t->refType;
+}
+
 Value* ArrayItem::compile() const {
 	Value* arr = array->compile();
 	Value* position = loadValue(pos->compile());
@@ -562,18 +766,81 @@ Value* ArrayItem::compile() const {
 	return Builder.CreateInBoundsGEP(ld, pos32, "geptmp");
 }
 
+void ConstInt::sem() {
+	type = typeInteger;
+}
+
 Value* ConstInt::compile() const {
 	return c16(num);
+}
+
+void ConstChar::sem() {
+	type = typeChar;
 }
 
 Value* ConstChar::compile() const {
 	return c8(mychar);
 }
 
+void ConstBool::sem() {
+	type = typeBoolean;
+}
+
 Value* ConstBool::compile() const {
 	return c8(boolean);
 }
 
+void UnOp::sem() {
+	expr->sem();
+
+	switch (op) {
+		case UPLUS:
+		case UMINUS:
+			if (!equalType(expr->getType(), typeInteger)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression:" << *this << ", " << *expr << " is not Integer";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeInteger;
+			break;
+		case NOT:
+			if (!equalType(expr->getType(), typeBoolean)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *expr << " is not Boolean";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeBoolean;
+			break;
+		case IS_NIL:
+			if (!equalType(expr->getType(), typeList(typeAny))) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeBoolean;
+			break;
+		case HEAD:
+			if (!equalType(expr->getType(), typeList(typeAny))) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
+				fatal(expr_stream.str().c_str());
+			}
+			type = expr->getType()->refType;
+			if (type->kind == TYPE_ANY)
+				fatal("You cannot get the head of nil");
+			break;
+		case TAIL:
+			if (!equalType(expr->getType(), typeList(typeAny))) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *expr << " is not List";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeList(expr->getType()->refType);
+			if (type->refType->kind == TYPE_ANY)
+				fatal("You cannot get the tail of nil");
+			break;
+	}
+}
 Value* UnOp::compile() const {
 	Value* V = expr->compile();
 	if (expr->isLval())
@@ -605,6 +872,69 @@ Value* UnOp::compile() const {
 	}
 }
 
+void BinOp::sem() {
+	left->sem();
+	right->sem();
+
+	switch(op) {
+		case PLUS:
+		case MINUS:
+		case TIMES:
+		case DIV:
+		case MOD:
+			if (!equalType(left->getType(), typeInteger)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *left << " is not an Integer";
+				fatal(expr_stream.str().c_str());
+			}
+			if (!equalType(right->getType(), typeInteger)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *right << " is not an Integer";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeInteger;
+			break;
+		case EQ:
+		case NEQ:
+		case GREATER:
+		case LESS:
+		case GEQ:
+		case LEQ:
+			if (!equalType(left->getType(), right->getType())) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *left << " and " << *right << " are not the same type";
+				fatal(expr_stream.str().c_str());
+			}
+			if (equalType(left->getType(), typeIArray(typeAny)))
+				fatal("You cannot compare arrays");
+			else if (equalType(left->getType(), typeList(typeAny)))
+				fatal("You cannot compare lists");
+			type = typeBoolean;
+			break;
+		case AND:
+		case OR:
+			if (!equalType(right->getType(), typeBoolean)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *right << " is not a Boolean";
+				fatal(expr_stream.str().c_str());
+			}
+			if (!equalType(left->getType(), typeBoolean)) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *left << " is not a Boolean";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeBoolean;
+			break;
+		case CONS:
+			if (!equalType(right->getType(), typeList(left->getType()))) {
+				std::stringstream expr_stream;
+				expr_stream << "In expression: " << *this << ", " << *right << " is not of type " << left->getType() << " List";
+				fatal(expr_stream.str().c_str());
+			}
+			type = typeList(left->getType());
+			break;
+	}
+}
 
 Value* BinOp::compile() const {
 	Value* l = left->compile();
@@ -667,6 +997,13 @@ Value* BinOp::compile() const {
 	return nullptr;
 }
 
+void New::sem() {
+	type = typeIArray(ref);
+	size->sem();
+	if (!equalType(size->getType(), typeInteger)) {
+		fatal("Integer size expected for new operator");
+	}
+}
 Value* New::compile() const {
 	Value* s = loadValue(size->compile());
 	std::vector<Value*> ArgsV;
@@ -674,6 +1011,10 @@ Value* New::compile() const {
 	ArgsV.push_back(Builder.CreateSExt(multmp, i64, "exttmp"));
 	Value* ptr = Builder.CreateCall(TheMalloc, ArgsV, "malloctmp");
 	return Builder.CreateBitCast(ptr, PointerType::getUnqual(translate(ref)), "bitctemp");
+}
+
+void Nil::sem() {
+	type = typeList(typeAny);
 }
 
 Value* Nil::compile() const {
