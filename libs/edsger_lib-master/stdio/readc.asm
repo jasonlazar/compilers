@@ -18,8 +18,8 @@ readAgain:
             mov     rdi, 0                    ; from stdin
             mov     rax, 0                    ; using the read() syscall
             syscall
-            cmp     byte [rsp], 0xa
-            jz      readAgain
+;            cmp     byte [rsp], 0xa
+;            jz      readAgain
             xor     rax, rax                  ; store it
             mov     al, byte [rsp]
             add     rsp, 4
