@@ -1,0 +1,31 @@
+def main():
+  <*
+  int i
+
+  puti(abs(-40))
+  putc('\n')
+  puti(ord('\t'))
+  putc('\n')
+  for i:=65; i <= 90; i:=i+1:
+    putc(chr(i))
+  end
+  puts("\n")
+  *>
+  char[] st, st2
+
+  st := new char[15]
+  strcpy(st, "hello")
+  puts(st)
+  putc('\n')
+  puti(strlen(st))
+
+  st2 := new char[5]
+  strcpy(st2, " you")
+  puts(st2)
+  putc('\n')
+  puti(strcmp(st, st2))
+  putc('\n')
+  strcat(st, st2)
+  puts(st)
+  putc('\n')
+end

@@ -1,0 +1,10 @@
+def main():
+  int i
+
+  def printi():
+    puti(i)
+  end
+
+  i:=5
+  printi()
+end
