@@ -1,10 +1,30 @@
 def main():
   int i
+  bool b
+  char c
 
   def printi():
+	def print():
+	  bool b
+	  def printb():
+	    putb(b)
+	  end
+
+	  b := true
+	  puti(i)
+	  i := 10
+	  printb()
+	end
     puti(i)
+	putc('\n')
+	i:= 8
+	print()
   end
 
   i:=5
+  b := false
   printi()
+  putc('\n')
+  puti(i)
+  putc('\n')
 end

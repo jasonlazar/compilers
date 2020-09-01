@@ -549,8 +549,6 @@ SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
             break;
     }
 
-    if (err)
-        fatal("Unknown identifier: %s", name);
     return NULL;
 }
 

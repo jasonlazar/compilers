@@ -1,5 +1,8 @@
 #include "ast.hpp"
 
+#include <map>
+#include <utility>
+
 using llvm::Function;
 using llvm::FunctionType;
 using llvm::Value;
@@ -21,6 +24,8 @@ using llvm::LoadInst;
 using llvm::GetElementPtrInst;
 using llvm::outs;
 using llvm::errs;
+
+std::map<Function*, std::vector<Value*> *> inherited;
 
 LLVMContext AST::TheContext;
 IRBuilder<> AST::Builder(TheContext);
@@ -272,8 +277,6 @@ Function* Header::compile() const {
 		}
 	}
 
-	endFunctionHeader(func, type);
-
 	Function *TheFunction = TheModule->getFunction(id);
 
 	if (!TheFunction) {
@@ -285,8 +288,41 @@ Function* Header::compile() const {
 			for (size_t i=0; i<formal_size; ++i)
 				types.push_back(ft);
 		}
+		std::vector<Value*> *inh = new std::vector<Value *>;
+		std::vector<std::string> names;
+		Scope* scp = currentScope->parent;
+		if (scp != nullptr) {
+			SymbolEntry* e = scp->entries;
+
+			while (e != nullptr) {
+				if (lookupEntry(e->id, LOOKUP_ALL_SCOPES, true) == e) {
+					switch(e->entryType) {
+						case ENTRY_VARIABLE:
+							newParameter(e->id, e->u.eVariable.type, PASS_BY_REFERENCE, func);
+							types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
+							inh->push_back((AllocaInst *) e->alloca);
+							names.push_back(e->id);
+							break;
+						case ENTRY_PARAMETER:
+							newParameter(e->id, e->u.eParameter.type, PASS_BY_REFERENCE, func);
+							types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
+							if (e->u.eParameter.mode == PASS_BY_VALUE)
+								inh->push_back((AllocaInst *) e->alloca);
+							else
+								inh->push_back(loadValue((AllocaInst *) e->alloca));
+							names.push_back(e->id);
+							break;
+						default:
+							break;
+					}
+				}
+				e = e->nextInScope;
+			}
+		}
 		FunctionType* FT = FunctionType::get(translate(type), types, false);
 		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
+
+		inherited.insert(std::make_pair(TheFunction, inh));
 
 		// Set names for all arguments
 		auto it = TheFunction->arg_begin();
@@ -296,7 +332,13 @@ Function* Header::compile() const {
 				++it;
 			}
 		}
+		for (std::string name : names) {
+			it->setName(name);
+			++it;
+		}
 	}
+
+	endFunctionHeader(func, type);
 	return TheFunction;
 }
 
@@ -412,9 +454,22 @@ void VarDef::sem() {
 
 Value* VarDef::compile() const {
 	for (std::string id : id_list) {
-		SymbolEntry* se = newVariable(id.c_str(), type);
-		AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, id);
-		se->alloca = (void *) alloc;
+		SymbolEntry* se = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+		if (se == nullptr) {
+			se = newVariable(id.c_str(), type);
+			AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, id);
+			se->alloca = (void *) alloc;
+		}
+		else if (se->nestingLevel != currentScope->nestingLevel) {
+			se = newVariable(id.c_str(), type);
+			AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, id);
+			se->alloca = (void *) alloc;
+		}
+		else {
+			se->entryType = ENTRY_VARIABLE;
+			AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, "_"+id);
+			se->alloca = (void *) alloc;
+		}
 	}
 	return nullptr;
 }
@@ -459,6 +514,8 @@ Value* Assign::compile() const {
 
 void Call::sem() {
 	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	if (e == nullptr)
+        fatal("Unknown identifier: %s", name.c_str());
 	if (e->entryType != ENTRY_FUNCTION) {
 		fatal("%s is not a Function", name.c_str());
 	}
@@ -527,7 +584,8 @@ Value* Call::compile() const {
 			return nullptr;
 	}
 
-	// return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+	std::vector<Value*> * inh = inherited.find(CalleeF)->second;
+	ArgsV.insert(ArgsV.end(), inh->begin(), inh->end());
 	return Builder.CreateCall(CalleeF, ArgsV);
 }
 
@@ -708,6 +766,8 @@ Value* For::compile() const {
 
 void Id::sem() {
 	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+	if (e == nullptr)
+        fatal("Unknown identifier: %s", id.c_str());
 	switch (e->entryType) {
 		case ENTRY_VARIABLE:
 			type = e->u.eVariable.type;
