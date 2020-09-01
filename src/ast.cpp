@@ -25,6 +25,8 @@ using llvm::GetElementPtrInst;
 using llvm::outs;
 using llvm::errs;
 
+std::string AST::prepend = "-";
+
 std::map<Function*, std::vector<Value*> *> inherited;
 
 LLVMContext AST::TheContext;
@@ -82,6 +84,40 @@ Value *AST::loadValue(Value *p)
 		return Builder.CreateLoad(p, "var");
 	else
 		return p;
+}
+
+void AST::addLibFunctionPointers() {
+	SymbolEntry* se;
+	se = lookupEntry("puti", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) ThePuti;
+	se = lookupEntry("putb", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) ThePutb;
+	se = lookupEntry("putc", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) ThePutc;
+	se = lookupEntry("puts", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) ThePuts;
+	se = lookupEntry("geti", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheGeti;
+	se = lookupEntry("getb", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheGetb;
+	se = lookupEntry("getc", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheGetc;
+	se = lookupEntry("gets", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheGets;
+	se = lookupEntry("abs", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheAbs;
+	se = lookupEntry("ord", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheOrd;
+	se = lookupEntry("chr", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheChr;
+	se = lookupEntry("strlen", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheStrlen;
+	se = lookupEntry("strcmp", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheStrcmp;
+	se = lookupEntry("strcpy", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheStrcpy;
+	se = lookupEntry("strcat", LOOKUP_ALL_SCOPES, true);
+	se->alloca = (void *) TheStrcat;
 }
 
 void AST::llvm_compile_and_dump(bool optimize) {
@@ -210,6 +246,7 @@ void AST::llvm_compile_and_dump(bool optimize) {
 	TheInit =
 		Function::Create(init_type, Function::ExternalLinkage, "GC_init", TheModule.get());
 
+	addLibFunctionPointers();
 
 	// Emit the program code.
 	Value* main_func = compile();
@@ -265,6 +302,7 @@ void Header::sem() {
 }
 
 Function* Header::compile() const {
+	SymbolEntry* fun = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 	SymbolEntry* func = newFunction(id.c_str());
 	if (!is_def)
 		forwardFunction(func);
@@ -279,63 +317,72 @@ Function* Header::compile() const {
 
 	Function *TheFunction = TheModule->getFunction(id);
 
-	if (!TheFunction) {
-		std::vector<llvm::Type*> types;
-		for (Formal* f : formal_list) {
-			size_t formal_size = f->getIdList().size();
-			llvm::Type* formal_type = translate(f->getType());
-			llvm::Type* ft = (f->getRef()) ? PointerType::getUnqual(formal_type) : formal_type;
-			for (size_t i=0; i<formal_size; ++i)
-				types.push_back(ft);
-		}
-		std::vector<Value*> *inh = new std::vector<Value *>;
-		std::vector<std::string> names;
-		Scope* scp = currentScope->parent;
-		if (scp != nullptr) {
-			SymbolEntry* e = scp->entries;
+	std::string new_id = id;
+	if (fun != nullptr) {
+		if (fun->entryType == ENTRY_FUNCTION && fun->u.eFunction.isForward
+				&& fun->nestingLevel == currentScope->nestingLevel) 
+			return nullptr;
+	}
+	else if (TheFunction) {
+		new_id = prepend + id;
+		prepend += "-";
+	}
+	std::vector<llvm::Type*> types;
+	for (Formal* f : formal_list) {
+		size_t formal_size = f->getIdList().size();
+		llvm::Type* formal_type = translate(f->getType());
+		llvm::Type* ft = (f->getRef()) ? PointerType::getUnqual(formal_type) : formal_type;
+		for (size_t i=0; i<formal_size; ++i)
+			types.push_back(ft);
+	}
+	std::vector<Value*> *inh = new std::vector<Value *>;
+	std::vector<std::string> names;
+	Scope* scp = currentScope->parent;
+	if (scp != nullptr) {
+		SymbolEntry* e = scp->entries;
 
-			while (e != nullptr) {
-				if (lookupEntry(e->id, LOOKUP_ALL_SCOPES, true) == e) {
-					switch(e->entryType) {
-						case ENTRY_VARIABLE:
-							newParameter(e->id, e->u.eVariable.type, PASS_BY_REFERENCE, func);
-							types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
+		while (e != nullptr) {
+			if (lookupEntry(e->id, LOOKUP_ALL_SCOPES, true) == e) {
+				switch(e->entryType) {
+					case ENTRY_VARIABLE:
+						newParameter(e->id, e->u.eVariable.type, PASS_BY_REFERENCE, func);
+						types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
+						inh->push_back((AllocaInst *) e->alloca);
+						names.push_back(e->id);
+						break;
+					case ENTRY_PARAMETER:
+						newParameter(e->id, e->u.eParameter.type, PASS_BY_REFERENCE, func);
+						types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
+						if (e->u.eParameter.mode == PASS_BY_VALUE)
 							inh->push_back((AllocaInst *) e->alloca);
-							names.push_back(e->id);
-							break;
-						case ENTRY_PARAMETER:
-							newParameter(e->id, e->u.eParameter.type, PASS_BY_REFERENCE, func);
-							types.push_back(PointerType::getUnqual(translate(e->u.eVariable.type)));
-							if (e->u.eParameter.mode == PASS_BY_VALUE)
-								inh->push_back((AllocaInst *) e->alloca);
-							else
-								inh->push_back(loadValue((AllocaInst *) e->alloca));
-							names.push_back(e->id);
-							break;
-						default:
-							break;
-					}
+						else
+							inh->push_back(loadValue((AllocaInst *) e->alloca));
+						names.push_back(e->id);
+						break;
+					default:
+						break;
 				}
-				e = e->nextInScope;
 			}
+			e = e->nextInScope;
 		}
-		FunctionType* FT = FunctionType::get(translate(type), types, false);
-		TheFunction = Function::Create(FT, Function::ExternalLinkage, id, TheModule.get());
+	}
+	FunctionType* FT = FunctionType::get(translate(type), types, false);
+	TheFunction = Function::Create(FT, Function::ExternalLinkage, new_id, TheModule.get());
 
-		inherited.insert(std::make_pair(TheFunction, inh));
+	func->alloca = (void *) TheFunction;
+	inherited.insert(std::make_pair(TheFunction, inh));
 
-		// Set names for all arguments
-		auto it = TheFunction->arg_begin();
-		for (Formal* f : formal_list) {
-			for (std::string id : f->getIdList()) {
-				it->setName(id);
-				++it;
-			}
-		}
-		for (std::string name : names) {
-			it->setName(name);
+	// Set names for all arguments
+	auto it = TheFunction->arg_begin();
+	for (Formal* f : formal_list) {
+		for (std::string id : f->getIdList()) {
+			it->setName(id);
 			++it;
 		}
+	}
+	for (std::string name : names) {
+		it->setName(name);
+		++it;
 	}
 
 	endFunctionHeader(func, type);
@@ -515,7 +562,7 @@ Value* Assign::compile() const {
 void Call::sem() {
 	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
 	if (e == nullptr)
-        fatal("Unknown identifier: %s", name.c_str());
+		fatal("Unknown identifier: %s", name.c_str());
 	if (e->entryType != ENTRY_FUNCTION) {
 		fatal("%s is not a Function", name.c_str());
 	}
@@ -564,9 +611,8 @@ Value* Call::compile() const {
 			return nullptr;
 	}
 
-	Function *CalleeF = TheModule->getFunction(name);
-
 	SymbolEntry* e = lookupEntry(name.c_str(), LOOKUP_ALL_SCOPES, true);
+	Function* CalleeF = (Function *) e->alloca;
 	SymbolEntry* args = e->u.eFunction.firstArgument;
 	// Iterate for each parameter
 	std::vector<Value*> ArgsV;
@@ -767,7 +813,7 @@ Value* For::compile() const {
 void Id::sem() {
 	SymbolEntry* e = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
 	if (e == nullptr)
-        fatal("Unknown identifier: %s", id.c_str());
+		fatal("Unknown identifier: %s", id.c_str());
 	switch (e->entryType) {
 		case ENTRY_VARIABLE:
 			type = e->u.eVariable.type;

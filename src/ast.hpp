@@ -80,6 +80,9 @@ class AST {
 		static llvm::Type *i64;
 		static llvm::PointerType *ListType;
 
+		static std::string prepend;
+
+		static void addLibFunctionPointers();
 
 		static llvm::ConstantInt* c1(bool b) {
 			return llvm::ConstantInt::get(TheContext, llvm::APInt(1, b, true));

@@ -4,11 +4,11 @@ def main():
   char c
 
   def printi():
-	def print():
-	  bool b
+	def printi():
 	  def printb():
 	    putb(b)
 	  end
+      bool b
 
 	  b := true
 	  puti(i)
@@ -18,7 +18,11 @@ def main():
     puti(i)
 	putc('\n')
 	i:= 8
-	print()
+	printi()
+  end
+
+  def printbool(bool d):
+    putb(d)
   end
 
   i:=5
@@ -27,4 +31,5 @@ def main():
   putc('\n')
   puti(i)
   putc('\n')
+  printbool(true)
 end
