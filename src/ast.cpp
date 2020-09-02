@@ -303,6 +303,15 @@ void Header::sem() {
 
 Function* Header::compile() const {
 	SymbolEntry* fun = lookupEntry(id.c_str(), LOOKUP_ALL_SCOPES, true);
+	Function *TheFunction = TheModule->getFunction(id);
+	bool declared = false;
+
+	if (fun != nullptr) {
+		if (fun->entryType == ENTRY_FUNCTION && fun->u.eFunction.isForward
+				&& fun->nestingLevel == currentScope->nestingLevel) 
+			declared = true;
+	}
+
 	SymbolEntry* func = newFunction(id.c_str());
 	if (!is_def)
 		forwardFunction(func);
@@ -315,14 +324,9 @@ Function* Header::compile() const {
 		}
 	}
 
-	Function *TheFunction = TheModule->getFunction(id);
-
 	std::string new_id = id;
-	if (fun != nullptr) {
-		if (fun->entryType == ENTRY_FUNCTION && fun->u.eFunction.isForward
-				&& fun->nestingLevel == currentScope->nestingLevel) 
-			return nullptr;
-	}
+	if (declared)
+		return TheFunction;
 	else if (TheFunction) {
 		new_id = prepend + id;
 		prepend += "-";
@@ -864,6 +868,12 @@ void ArrayItem::sem() {
 		atom << *array << " is not an Array";
 		fatal(atom.str().c_str());
 	}
+	pos->sem();
+	if (!equalType(pos->getType(), typeInteger)) {
+		std::stringstream atom;
+		atom << "In expression " << *this << ", the position must be Integer";
+		fatal(atom.str().c_str());
+	}
 	type = t->refType;
 }
 
@@ -871,7 +881,11 @@ Value* ArrayItem::compile() const {
 	Value* arr = array->compile();
 	Value* position = loadValue(pos->compile());
 	Value* pos32 = Builder.CreateSExt(position, i32, "exttmp");
-	LoadInst* ld = Builder.CreateLoad(arr, "ldtmp");
+	Value* ld;
+	if (array->isLval())
+		ld = Builder.CreateLoad(arr, "ldtmp");
+	else
+		ld = arr;
 	return Builder.CreateInBoundsGEP(ld, pos32, "geptmp");
 }
 
