@@ -21,7 +21,7 @@ def main():
 	printi()
   end
 
-  def printbool(bool d):
+  def printb(bool d):
     putb(d)
   end
 
@@ -31,5 +31,5 @@ def main():
   putc('\n')
   puti(i)
   putc('\n')
-  printbool(true)
+  printb(true)
 end

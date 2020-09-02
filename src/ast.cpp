@@ -513,7 +513,8 @@ Value* VarDef::compile() const {
 			se->alloca = (void *) alloc;
 		}
 		else {
-			se->entryType = ENTRY_VARIABLE;
+			strcpy((char *) se->id, "");
+			se = newVariable(id.c_str(), type);
 			AllocaInst *alloc = Builder.CreateAlloca(translate(type), nullptr, "_"+id);
 			se->alloca = (void *) alloc;
 		}
