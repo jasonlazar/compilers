@@ -471,6 +471,8 @@ Function* FunctionDef::compile() const {
 
 	closeScope();
 	verifyFunction(*TheFunction, &errs());
+	if (o_flag)
+		TheFPM->run(*TheFunction);
 	return TheFunction;
 }
 

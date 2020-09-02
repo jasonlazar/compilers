@@ -28,6 +28,7 @@ extern "C" {
 #include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/Transforms/Utils.h>
 
+extern bool o_flag;
 
 class AST {
 	public:

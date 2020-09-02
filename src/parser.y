@@ -20,6 +20,7 @@ extern FILE* yyin;
 bool o_flag, i_flag, f_flag;
 int linecount=1;
 std::string filename;
+std::string tony_path;
 %}
 
 %define parse.error verbose
@@ -190,7 +191,10 @@ program:
 			bin_file.append(".out");
 		else
 			bin_file.erase(last);
-		command = "clang-9 -o " + bin_file + " " + as_file + " libs/edsger_lib-master/lib.a -lgc";
+		std::string lib = tony_path;
+		last = lib.rfind('/');
+		lib.replace(last+1, lib.length()-last-1, "libs/edsger_lib-master/lib.a"); 
+		command = "clang-9 -o " + bin_file + " " + as_file + " " + lib + " -lgc";
 		system(command.c_str());
 
 		// Remove tmp files
@@ -338,6 +342,7 @@ expr:
 
 int main(int argc, char** argv) {
 	int opt;
+	tony_path = argv[0];
 	if (argc == 1) {
 		std::cerr <<
 			"Usage: tony [options] [FILE]\n"
