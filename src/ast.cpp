@@ -4,11 +4,12 @@
 #include <utility>
 
 using llvm::Function;
-using llvm::FunctionType;
 using llvm::Value;
 using llvm::LLVMContext;
 using llvm::IRBuilder;
 using llvm::Module;
+using llvm::PHINode;
+using llvm::FunctionType;
 using llvm::IntegerType;
 using llvm::PointerType;
 using llvm::ArrayType;
@@ -1061,14 +1062,20 @@ void BinOp::sem() {
 
 Value* BinOp::compile() const {
 	Value* l = left->compile();
-	Value* r = right->compile();
+	Value* r;
+	
+	if (op!=AND && op!=OR)
+		r = right->compile(); 
 
 	if (left->isLval())
 		l = loadValue(l);
 	if (right->isLval())
 		r = loadValue(r);
 
-	Value* V;
+	Value *V, *opval;
+	PHINode* phi;
+	BasicBlock *CurBB, *OpValBB, *AfterBB;
+	Function *TheFunction;
 
 	switch(op) {
 		case PLUS:
@@ -1100,9 +1107,37 @@ Value* BinOp::compile() const {
 			V = Builder.CreateICmpSLE(l, r, "leqtmp");
 			return Builder.CreateZExt(V, i8, "ext");
 		case AND:
-			return Builder.CreateAnd(l, r, "andtmp");
+			CurBB = Builder.GetInsertBlock();
+			TheFunction = CurBB->getParent();
+			OpValBB = BasicBlock::Create(TheContext, "and", TheFunction);
+			AfterBB = BasicBlock::Create(TheContext, "endand", TheFunction);
+			V = Builder.CreateICmpUGT(l, c8(0), "and1tmp");
+			Builder.CreateCondBr(V, OpValBB, AfterBB);
+			Builder.SetInsertPoint(OpValBB);
+			r = right->compile(); 
+			opval = Builder.CreateICmpUGT(r, c8(0), "and2tmp");
+			Builder.CreateBr(AfterBB);
+			Builder.SetInsertPoint(AfterBB);
+			phi = Builder.CreatePHI(i1, 2, "phi");
+			phi->addIncoming(V, CurBB);
+			phi->addIncoming(opval, OpValBB);
+			return Builder.CreateZExt(phi, i8, "ext");
 		case OR:
-			return Builder.CreateOr(l, r, "ortmp");
+			CurBB = Builder.GetInsertBlock();
+			TheFunction = CurBB->getParent();
+			OpValBB = BasicBlock::Create(TheContext, "or", TheFunction);
+			AfterBB = BasicBlock::Create(TheContext, "endor", TheFunction);
+			V = Builder.CreateICmpUGT(l, c8(0), "or1tmp");
+			Builder.CreateCondBr(V, AfterBB, OpValBB);
+			Builder.SetInsertPoint(OpValBB);
+			r = right->compile(); 
+			opval = Builder.CreateICmpUGT(r, c8(0), "or2tmp");
+			Builder.CreateBr(AfterBB);
+			Builder.SetInsertPoint(AfterBB);
+			phi = Builder.CreatePHI(i1, 2, "phi");
+			phi->addIncoming(V, CurBB);
+			phi->addIncoming(opval, OpValBB);
+			return Builder.CreateZExt(phi, i8, "ext");
 		case CONS:
 			Value* p = Builder.CreateCall(TheMalloc, {c64(16)}, "malloctmp");
 			Value* n = Builder.CreateBitCast(p, ListType, "nodetmp");

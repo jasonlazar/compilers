@@ -4,21 +4,21 @@ def main():
   char c
 
   def printi():
-	def printi():
-	  def printb():
-	    putb(b)
-	  end
+    def printi():
+      def printb():
+        putb(b)
+      end
       bool b
 
-	  b := true
-	  puti(i)
-	  i := 10
-	  printb()
-	end
+      b := true
+      puti(i)
+      i := 10
+      printb()
+    end
     puti(i)
-	putc('\n')
-	i:= 8
-	printi()
+    putc('\n')
+    i:= 8
+    printi()
   end
 
   def printb(bool d):
