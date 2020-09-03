@@ -1064,13 +1064,14 @@ Value* BinOp::compile() const {
 	Value* l = left->compile();
 	Value* r;
 	
-	if (op!=AND && op!=OR)
+	if (op!=AND && op!=OR) {
 		r = right->compile(); 
+		if (right->isLval())
+			r = loadValue(r);
+	}
 
 	if (left->isLval())
 		l = loadValue(l);
-	if (right->isLval())
-		r = loadValue(r);
 
 	Value *V, *opval;
 	PHINode* phi;
@@ -1115,6 +1116,8 @@ Value* BinOp::compile() const {
 			Builder.CreateCondBr(V, OpValBB, AfterBB);
 			Builder.SetInsertPoint(OpValBB);
 			r = right->compile(); 
+			if (right->isLval())
+				r = loadValue(r);
 			opval = Builder.CreateICmpUGT(r, c8(0), "and2tmp");
 			Builder.CreateBr(AfterBB);
 			Builder.SetInsertPoint(AfterBB);
@@ -1131,6 +1134,8 @@ Value* BinOp::compile() const {
 			Builder.CreateCondBr(V, AfterBB, OpValBB);
 			Builder.SetInsertPoint(OpValBB);
 			r = right->compile(); 
+			if (right->isLval())
+				r = loadValue(r);
 			opval = Builder.CreateICmpUGT(r, c8(0), "or2tmp");
 			Builder.CreateBr(AfterBB);
 			Builder.SetInsertPoint(AfterBB);
