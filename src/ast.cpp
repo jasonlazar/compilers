@@ -1118,6 +1118,7 @@ Value* BinOp::compile() const {
 			r = right->compile(); 
 			if (right->isLval())
 				r = loadValue(r);
+			OpValBB = Builder.GetInsertBlock();
 			opval = Builder.CreateICmpUGT(r, c8(0), "and2tmp");
 			Builder.CreateBr(AfterBB);
 			Builder.SetInsertPoint(AfterBB);
@@ -1136,6 +1137,7 @@ Value* BinOp::compile() const {
 			r = right->compile(); 
 			if (right->isLval())
 				r = loadValue(r);
+			OpValBB = Builder.GetInsertBlock();
 			opval = Builder.CreateICmpUGT(r, c8(0), "or2tmp");
 			Builder.CreateBr(AfterBB);
 			Builder.SetInsertPoint(AfterBB);
