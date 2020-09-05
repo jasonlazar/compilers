@@ -21,5 +21,19 @@ A complete compiler for the [Tony](https://courses.softlab.ntua.gr/compilers/202
 - libgc-dev (Boehm's Garbage Collector)
 
 ## Building
+To build everything do:
+```
+make
+```
 
 ## Usage
+To run the compiler:
+```
+./tony [flags] [FILE]
+```
+The supported flags are:
+- -o: Enable optimizations
+- -i: The input must be given on stdin and the intermediate code will be printed on stdout
+- -f: The input must be given on stdin and the final code will be printed on stdout
+
+If no -i or -f flags are given the input file must be given as a command line parameter.
