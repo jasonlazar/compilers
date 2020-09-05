@@ -1,4 +1,4 @@
-# Compilers NTUA 2019-20 8th semester :space_invader:
+# Compilers NTUA 2019-20 8th semester
 A complete compiler for the [Tony](https://courses.softlab.ntua.gr/compilers/2020a/tony2020.pdf) language for the course of Compilers in ECE, NTUA.
 
 ## Authors
