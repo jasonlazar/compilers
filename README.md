@@ -9,16 +9,32 @@ A complete compiler for the [Tony](https://courses.softlab.ntua.gr/compilers/202
 ## Technologies Used
 - flex &#8594; For Lexical Analysis
 - bison &#8594; For Syntax/Semantic Analysis
-- LLVM-9 &#8594; For IR Code/Code Generation/Optimizations
+- [LLVM](https://llvm.org/) &#8594; For IR Code/Code Generation/Optimizations
 - [edsger-lib](https://github.com/abenetopoulos/edsger_lib) &#8594; A x86 assembly runtime libraby for Linux
+- [bdwgc](https://www.hboehm.info/gc/) &#8594; Boehm's Garbage Collector
 
 
 ## Dependecies
 - flex (v2.6.4)
 - bison (v3.0.4)
-- [llmv-9](https://releases.llvm.org/download.html)
-- [edsger-lib](https://github.com/abenetopoulos/edsger_lib)
-- libgc-dev (Boehm's Garbage Collector)
+- llmv-9
+- libgc-dev
+
+### LLVM-9
+- For a Ubuntu/Debian system download the Automatic Installation Script and install with version 9:
+```
+wget https://apt.llvm.org/llvm.sh
+chmod +x llvm.sh
+sudo ./llvm.sh 9
+```
+- For other systems build version 9 from source from here https://releases.llvm.org/download.html
+
+### libgc-dev
+- For a Ubuntu/Debian system install header files for Boehm's Garbage Collector from apt package:
+```
+sudo apt install libgc-dev
+```
+- For other systems find here https://www.hboehm.info/gc/ or find appropriate packages for your distribution.
 
 ## Building
 To build everything do:
