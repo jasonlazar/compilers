@@ -48,7 +48,7 @@ To run the compiler:
 ./tony [flags] [FILE]
 ```
 The supported flags are:
-- -o: Enable optimizations
+- -O: Enable optimizations
 - -i: The input must be given on stdin and the intermediate code will be printed on stdout
 - -f: The input must be given on stdin and the final code will be printed on stdout
 
